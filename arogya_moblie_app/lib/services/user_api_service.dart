@@ -112,6 +112,62 @@ class UserApiService {
     return null;
   }
 
+  // ── Register ───────────────────────────────────────────────────────
+
+  /// Register a new user account.
+  /// [roleId] and [roleName] must correspond to a valid role on the server.
+  /// [secretKey] is required for DOCTOR, ADMIN, and TECHNICIAN roles.
+  static Future<Map<String, dynamic>> register({
+    required String username,
+    required String email,
+    required String password,
+    required int roleId,
+    required String roleName,
+    String? secretKey,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/users/addUser');
+
+    final Map<String, dynamic> body = {
+      'username': username,
+      'email': email,
+      'password': password,
+      'userRole': {
+        'id': roleId,
+        'roleName': roleName,
+      },
+    };
+    if (secretKey != null && secretKey.isNotEmpty) {
+      body['secretKey'] = secretKey;
+    }
+
+    try {
+      final response = await http
+          .post(uri, headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        final json = _tryDecode(response.body);
+        String msg;
+        if (response.statusCode == 409) {
+          msg = 'An account with this email already exists.';
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          msg = 'Invalid secret key. Please check your credentials.';
+        } else if (response.statusCode == 400) {
+          msg = json?['message'] ?? 'Invalid registration data. Please check your information.';
+        } else {
+          msg = json?['message'] ?? 'Registration failed (${response.statusCode})';
+        }
+        throw UserApiException(msg, response.statusCode);
+      }
+    } on UserApiException {
+      rethrow;
+    } catch (e) {
+      throw UserApiException('Cannot connect to server. Check your network.', 0);
+    }
+  }
+
   // ── helpers ────────────────────────────────────────────────────────
 
   static Map<String, dynamic>? _tryDecode(String body) {
