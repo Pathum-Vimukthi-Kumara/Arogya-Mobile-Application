@@ -112,6 +112,183 @@ class UserApiService {
     return null;
   }
 
+  static Future<Map<String, dynamic>> createPatientProfile(
+      Map<String, dynamic> profile) async {
+    final uri = Uri.parse('$_baseUrl/patient_profile/createPatientProfile');
+    final response = await http
+        .post(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException('Failed to create patient profile', response.statusCode);
+  }
+
+  static Future<Map<String, dynamic>> updatePatientProfile(
+      Map<String, dynamic> profile) async {
+    final uri = Uri.parse('$_baseUrl/patient_profile/updatePatientProfile');
+    final response = await http
+        .put(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException('Failed to update patient profile', response.statusCode);
+  }
+
+  // ── Doctor profile ─────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getDoctorProfile(int userId) async {
+    final uri =
+        Uri.parse('$_baseUrl/doctor_profile/getDoctorProfileByUserId/$userId');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> createDoctorProfile(
+      Map<String, dynamic> profile) async {
+    final uri = Uri.parse('$_baseUrl/doctor_profile/createDoctorProfile');
+    final response = await http
+        .post(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException('Failed to create doctor profile', response.statusCode);
+  }
+
+  static Future<Map<String, dynamic>> updateDoctorProfile(
+      Map<String, dynamic> profile) async {
+    final uri = Uri.parse('$_baseUrl/doctor_profile/updateDoctorProfile');
+    final response = await http
+        .put(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException('Failed to update doctor profile', response.statusCode);
+  }
+
+  // ── Technician profile ─────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getTechnicianProfile(int userId) async {
+    final uri = Uri.parse(
+        '$_baseUrl/technician_profile/getTechnicianProfileByUserId/$userId');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> createTechnicianProfile(
+      Map<String, dynamic> profile) async {
+    final uri =
+        Uri.parse('$_baseUrl/technician_profile/createTechnicianProfile');
+    final response = await http
+        .post(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException(
+        'Failed to create technician profile', response.statusCode);
+  }
+
+  static Future<Map<String, dynamic>> updateTechnicianProfile(
+      Map<String, dynamic> profile) async {
+    final uri =
+        Uri.parse('$_baseUrl/technician_profile/updateTechnicianProfile');
+    final response = await http
+        .put(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException(
+        'Failed to update technician profile', response.statusCode);
+  }
+
+  // ── Admin profile ──────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getAdminProfile(int userId) async {
+    final uri =
+        Uri.parse('$_baseUrl/admin_profile/getAdminProfileByUserId/$userId');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> createAdminProfile(
+      Map<String, dynamic> profile) async {
+    final uri = Uri.parse('$_baseUrl/admin_profile/createAdminProfile');
+    final response = await http
+        .post(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException('Failed to create admin profile', response.statusCode);
+  }
+
+  static Future<Map<String, dynamic>> updateAdminProfile(
+      Map<String, dynamic> profile) async {
+    final uri = Uri.parse('$_baseUrl/admin_profile/updateAdminProfile');
+    final response = await http
+        .put(uri, headers: _headers, body: jsonEncode(profile))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw UserApiException('Failed to update admin profile', response.statusCode);
+  }
+
+  // ── Bulk list endpoints (for dashboard stats) ─────────────────────
+
+  static Future<List<dynamic>> getAllPatientProfiles() async {
+    final uri = Uri.parse('$_baseUrl/patient_profile/getAllPatientProfiles');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    throw UserApiException('Failed to load patients', response.statusCode);
+  }
+
+  static Future<List<dynamic>> getAllDoctorProfiles() async {
+    final uri = Uri.parse('$_baseUrl/doctor_profile/getAllDoctorProfiles');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    throw UserApiException('Failed to load doctors', response.statusCode);
+  }
+
   // ── Register ───────────────────────────────────────────────────────
 
   /// Register a new user account.

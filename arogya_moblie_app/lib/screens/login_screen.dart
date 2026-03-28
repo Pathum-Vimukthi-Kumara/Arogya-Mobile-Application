@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../app_theme.dart';
 import '../providers/auth_provider.dart';
 import 'dashboard_screen.dart';
-import 'signup_screen.dart';
+import 'role_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   static const routeName = '/login';
@@ -28,132 +29,139 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
     final auth = context.read<AuthProvider>();
     final ok = await auth.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
-
     if (!mounted) return;
     if (ok) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );
     }
-    // error is shown via Consumer below
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              children: [
-                // ── Brand logo ──────────────────────────────────────
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'A',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 38,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Welcome to Arogya',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Sign in to access your account',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 36),
+    final size = MediaQuery.of(context).size;
 
-                // ── Card ────────────────────────────────────────────
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.border),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.overlayLight,
+      child: Scaffold(
+        backgroundColor: AppTheme.primary,
+        body: Column(
+          children: [
+            // ── Hero section (teal) ──────────────────────────────────
+            SizedBox(
+              height: size.height * 0.36,
+              child: SafeArea(
+                bottom: false,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'A',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontSize: 42,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Arogya',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Mobile Clinics',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
                   ),
-                  padding: const EdgeInsets.all(24),
+                ),
+              ),
+            ),
+
+            // ── Form sheet (white, rounded top) ─────────────────────
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(32)),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Heading
+                        const Text(
+                          'Welcome back 👋',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Sign in to access your account',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+
                         // Error banner
                         Consumer<AuthProvider>(
                           builder: (_, auth, _) {
-                            if (auth.error == null) return const SizedBox.shrink();
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                              color: AppTheme.error.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                  color: AppTheme.error.withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.error_outline,
-                                      color: AppTheme.error, size: 18),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      auth.error!,
-                                      style: const TextStyle(
-                                        color: AppTheme.error,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () =>
-                                        context.read<AuthProvider>().clearError(),
-                                    child: const Icon(Icons.close,
-                                        color: AppTheme.error, size: 18),
-                                  ),
-                                ],
-                              ),
+                            if (auth.error == null) {
+                              return const SizedBox.shrink();
+                            }
+                            return _ErrorBanner(
+                              message: auth.error!,
+                              onClose: () =>
+                                  context.read<AuthProvider>().clearError(),
                             );
                           },
                         ),
 
                         // Email
-                        const Text(
-                          'Email',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
+                        const _Label('Email address'),
+                        const SizedBox(height: 8),
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
@@ -161,8 +169,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           autofillHints: const [AutofillHints.email],
                           decoration: const InputDecoration(
                             hintText: 'you@example.com',
-                            prefixIcon:
-                                Icon(Icons.email_outlined, color: AppTheme.textHint),
+                            prefixIcon: Icon(Icons.email_outlined,
+                                color: AppTheme.textHint),
                           ),
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
@@ -170,23 +178,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                             if (!RegExp(r'^[\w.+-]+@[\w-]+\.[a-z]{2,}$')
                                 .hasMatch(v.trim())) {
-                              return 'Enter a valid email address';
+                              return 'Enter a valid email';
                             }
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 18),
 
                         // Password
-                        const Text(
-                          'Password',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
+                        const _Label('Password'),
+                        const SizedBox(height: 8),
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
@@ -202,24 +203,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
                                 color: AppTheme.textHint,
+                                size: 20,
                               ),
-                              onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(() =>
+                                  _obscurePassword = !_obscurePassword),
                             ),
                           ),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) {
-                              return 'Password is required';
-                            }
-                            return null;
-                          },
+                          validator: (v) =>
+                              v == null || v.isEmpty
+                                  ? 'Password is required'
+                                  : null,
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 28),
 
-                        // Submit button
+                        // Sign in button
                         Consumer<AuthProvider>(
                           builder: (_, auth, _) => SizedBox(
-                            height: 48,
+                            height: 52,
                             child: ElevatedButton(
                               onPressed: auth.loading ? null : _submit,
                               child: auth.loading
@@ -235,41 +235,100 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 24),
+
+                        // Sign-up link
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              "Don't have an account?  ",
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondary),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const RoleSelectionScreen()),
+                              ),
+                              child: const Text(
+                                'Create account',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-                // ── Sign-up link ─────────────────────────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Don't have an account? ",
-                      style: TextStyle(
-                          fontSize: 14, color: AppTheme.textSecondary),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const SignupScreen()),
-                      ),
-                      child: const Text(
-                        'Create account',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textPrimary,
+        ),
+      );
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onClose;
+  const _ErrorBanner({required this.message, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border:
+            Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline,
+              color: AppTheme.error, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                  color: AppTheme.error, fontSize: 13),
             ),
           ),
-        ),
+          GestureDetector(
+            onTap: onClose,
+            child: const Icon(Icons.close,
+                color: AppTheme.error, size: 18),
+          ),
+        ],
       ),
     );
   }
