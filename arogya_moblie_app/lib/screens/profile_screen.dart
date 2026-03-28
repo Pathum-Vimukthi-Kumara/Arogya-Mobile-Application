@@ -158,9 +158,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _FieldLabel('User ID'),
-                    _ReadOnlyField('#${user.id}'),
-                    const SizedBox(height: 16),
                     const _FieldLabel('Username'),
                     _editing
                         ? TextFormField(
