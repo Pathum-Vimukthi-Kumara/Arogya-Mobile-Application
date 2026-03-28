@@ -263,125 +263,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String get _displayName {
+    if (_profileData != null) {
+      final first = _profileData!['firstName'] as String? ?? '';
+      final last = _profileData!['lastName'] as String? ?? '';
+      final full = '$first $last'.trim();
+      if (full.isNotEmpty) return full;
+    }
+    return widget.user.username;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = widget.user;
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('My Profile'),
+        automaticallyImplyLeading: true,
         actions: [
-          if (!_editing)
-            TextButton.icon(
-              onPressed: () => setState(() {
-                _editing = true;
-                _saveError = null;
-                _saveSuccess = null;
-              }),
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('Edit'),
-            )
-          else if (!_isNewProfile)
-            TextButton(
-              onPressed: () {
-                if (_profileData != null) _populateControllers(_profileData!);
-                setState(() {
-                  _editing = false;
+          if (!_loadingProfile)
+            if (!_editing)
+              TextButton(
+                onPressed: () => setState(() {
+                  _editing = true;
                   _saveError = null;
-                });
-              },
-              child: const Text('Cancel'),
-            ),
+                  _saveSuccess = null;
+                }),
+                child: const Text('Edit'),
+              )
+            else if (!_isNewProfile)
+              TextButton(
+                onPressed: () {
+                  if (_profileData != null) _populateControllers(_profileData!);
+                  setState(() {
+                    _editing = false;
+                    _saveError = null;
+                  });
+                },
+                child: const Text('Cancel'),
+              ),
         ],
       ),
-      body: _loadingProfile
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Avatar header ────────────────────────────────
-                    Center(
-                      child: Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 44,
-                            backgroundColor: AppTheme.primary,
-                            child: Text(
-                              user.initials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            user.username,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryLight,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              user.userRole.roleName,
-                              style: const TextStyle(
-                                color: AppTheme.primaryDark,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ── New profile notice ───────────────────────────
-                    if (_isNewProfile)
-                      _Banner(
-                        message:
-                            'No profile found. Fill in your details and tap "Create Profile".',
-                        color: AppTheme.primary,
-                        icon: Icons.info_outline,
-                      ),
-
-                    // ── Status messages ──────────────────────────────
-                    if (_saveSuccess != null)
-                      _Banner(
-                        message: _saveSuccess!,
-                        color: AppTheme.success,
-                        icon: Icons.check_circle_outline,
-                      ),
-                    if (_saveError != null)
-                      _Banner(
-                        message: _saveError!,
-                        color: AppTheme.error,
-                        icon: Icons.error_outline,
-                      ),
-
-                    // ── Profile form ─────────────────────────────────
-                    _buildProfileCard(),
-
-                    const SizedBox(height: 20),
-
-                    // ── Action button ────────────────────────────────
-                    if (_editing)
-                      SizedBox(
-                        height: 50,
+      // ── Pinned bottom actions ──────────────────────────────────────
+      bottomNavigationBar: _loadingProfile
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: _editing
+                    ? SizedBox(
+                        height: 52,
                         child: ElevatedButton(
                           onPressed: _saving ? null : _save,
                           child: _saving
@@ -396,27 +327,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ? 'Create Profile'
                                   : 'Save Changes'),
                         ),
+                      )
+                    : OutlinedButton.icon(
+                        onPressed: _confirmLogout,
+                        icon: const Icon(Icons.logout_rounded,
+                            size: 18, color: AppTheme.error),
+                        label: const Text('Sign Out'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 52),
+                        ),
                       ),
-                    const SizedBox(height: 32),
-
-                    // ── Sign out ─────────────────────────────────────
-                    OutlinedButton.icon(
-                      onPressed: _confirmLogout,
-                      icon: const Icon(Icons.logout_rounded,
-                          size: 18, color: AppTheme.error),
-                      label: const Text('Sign Out',
-                          style: TextStyle(color: AppTheme.error)),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                        side: const BorderSide(color: AppTheme.error),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
               ),
+            ),
+      body: _loadingProfile
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+          : ListView(
+              children: [
+                // ── Avatar identity card ───────────────────────────
+                Container(
+                  color: AppTheme.surface,
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 44,
+                        backgroundColor: AppTheme.primary,
+                        child: Text(
+                          widget.user.initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _displayName,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.user.email,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          widget.user.userRole.roleName,
+                          style: const TextStyle(
+                            color: AppTheme.primaryDark,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Form fields ────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_isNewProfile)
+                          _Banner(
+                            message:
+                                'No profile found. Fill in your details and tap "Create Profile".',
+                            color: AppTheme.primary,
+                            icon: Icons.info_outline,
+                          ),
+                        if (_saveSuccess != null)
+                          _Banner(
+                            message: _saveSuccess!,
+                            color: AppTheme.success,
+                            icon: Icons.check_circle_outline,
+                          ),
+                        if (_saveError != null)
+                          _Banner(
+                            message: _saveError!,
+                            color: AppTheme.error,
+                            icon: Icons.error_outline,
+                          ),
+                        _buildProfileFields(),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -453,10 +469,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileCard() {
-    return _SectionCard(
+  Widget _buildProfileFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Common fields ────────────────────────────────────────────
         _formField(_firstNameCtrl,
             label: 'First Name', hint: 'First name', required: true),
         const SizedBox(height: 16),
@@ -475,8 +491,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: 'NIC Number',
             hint: '123456789V or 123456789012',
             required: true),
-
-        // ── Role-specific fields ─────────────────────────────────────
         ..._roleSpecificFields(),
       ],
     );
@@ -693,28 +707,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 // ── Shared helper widgets ────────────────────────────────────────────────────
-
-class _SectionCard extends StatelessWidget {
-  final List<Widget> children;
-  const _SectionCard({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-}
 
 class _FieldLabel extends StatelessWidget {
   final String text;

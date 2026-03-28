@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../app_theme.dart';
 import '../models/user_model.dart';
@@ -6,7 +7,6 @@ import '../providers/auth_provider.dart';
 import '../services/clinic_api_service.dart';
 import '../services/user_api_service.dart';
 import 'clinics_screen.dart';
-import 'login_screen.dart';
 import 'profile_screen.dart';
 
 /// Bottom-nav shell shown only for ADMIN users.
@@ -91,6 +91,13 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
     _fetchStats();
   }
 
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   Future<void> _fetchStats() async {
     setState(() => _loading = true);
     // Fetch all in parallel — same approach as the web hook
@@ -120,79 +127,144 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
 
   @override
   Widget build(BuildContext context) {
-    final user = widget.user;
-
     final stats = [
       _StatItem(
         label: 'Total Patients',
         value: _totalPatients,
         icon: Icons.people_outline_rounded,
+        color: AppTheme.primary,
       ),
       _StatItem(
         label: 'Total Clinics',
         value: _totalClinics,
         icon: Icons.calendar_today_outlined,
+        color: const Color(0xFFF59E0B),
       ),
       _StatItem(
         label: 'Active Doctors',
         value: _activeDoctors,
         icon: Icons.how_to_reg_outlined,
+        color: const Color(0xFF6366F1),
       ),
       _StatItem(
-        label: 'Scheduled Clinics',
+        label: 'Scheduled',
         value: _scheduledClinics,
-        icon: Icons.calendar_today_outlined,
+        icon: Icons.event_available_outlined,
+        color: const Color(0xFF10B981),
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        automaticallyImplyLeading: false,
-      ),
-      body: RefreshIndicator(
-        color: AppTheme.primary,
-        onRefresh: () async {
-          await context.read<AuthProvider>().refreshUser();
-          await _fetchStats();
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.overlayLight,
+      child: Scaffold(
+        backgroundColor: AppTheme.primary,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Page heading (matches web) ──────────────────────────
-            Text(
-              'Dashboard',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
+            // ── Gradient header ──────────────────────────────────────
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _greeting(),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.75),
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Hello, ${widget.user.username} 👋',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'Administrator',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      child: Text(
+                        widget.user.initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Admin Dashboard',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 24),
 
-            // ── 2×2 stat cards grid ─────────────────────────────────
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.35,
+            // ── White body ───────────────────────────────────────────
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.background,
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: RefreshIndicator(
+                  color: AppTheme.primary,
+                  onRefresh: () async {
+                    await context.read<AuthProvider>().refreshUser();
+                    await _fetchStats();
+                  },
+                  child: ListView(
+                    padding:
+                        const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                    children: [
+                      const Text(
+                        'Overview',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // ── Stat list (single column) ───────────────────
+                      ...List.generate(stats.length, (i) => Padding(
+                        padding: EdgeInsets.only(
+                            bottom: i < stats.length - 1 ? 12 : 0),
+                        child: _StatCard(item: stats[i], loading: _loading),
+                      )),
+                    ],
+                  ),
+                ),
               ),
-              itemCount: stats.length,
-              itemBuilder: (_, i) =>
-                  _StatCard(item: stats[i], loading: _loading),
             ),
           ],
         ),
@@ -207,11 +279,16 @@ class _StatItem {
   final String label;
   final int value;
   final IconData icon;
-  const _StatItem(
-      {required this.label, required this.value, required this.icon});
+  final Color color;
+  const _StatItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 }
 
-// ── Stat card widget (matches web card design) ────────────────────────────────
+// ── Stat card widget ──────────────────────────────────────────────────────────
 
 class _StatCard extends StatelessWidget {
   final _StatItem item;
@@ -223,64 +300,105 @@ class _StatCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
         children: [
-          // Label
-          Text(
-            item.label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
+          // Icon badge
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Icon(item.icon, color: item.color, size: 22),
           ),
-          // Value row + icon
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Number
-              Expanded(
-                child: loading
-                    ? Container(
-                        height: 32,
-                        width: 60,
-                        decoration: BoxDecoration(
-                          color: AppTheme.border,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      )
+          const SizedBox(width: 16),
+          // Label + value
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                loading
+                    ? _SkeletonBox(width: 56, height: 24)
                     : Text(
                         item.value.toString(),
                         style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
                           color: AppTheme.textPrimary,
-                          height: 1,
+                          height: 1.1,
                         ),
                       ),
-              ),
-              // Icon badge
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryLight,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  item.icon,
-                  color: AppTheme.primary,
-                  size: 22,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Skeleton loading box ───────────────────────────────────────────────────────
+
+class _SkeletonBox extends StatefulWidget {
+  final double width;
+  final double height;
+  const _SkeletonBox({required this.width, required this.height});
+
+  @override
+  State<_SkeletonBox> createState() => _SkeletonBoxState();
+}
+
+class _SkeletonBoxState extends State<_SkeletonBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.35, end: 0.9).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Opacity(
+        opacity: _anim.value,
+        child: Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: AppTheme.border,
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       ),
     );
   }

@@ -3,7 +3,7 @@ import '../app_theme.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
 
-// ── Role model (shared with SignupScreen) ─────────────────────────────────────
+// ── Role model ────────────────────────────────────────────────────────────────
 
 class RoleOption {
   final int id;
@@ -29,7 +29,7 @@ const List<RoleOption> kRoles = [
     roleName: 'PATIENT',
     label: 'Patient',
     description: 'Book appointments and manage your health records',
-    icon: Icons.person_outline,
+    icon: Icons.person_outline_rounded,
     requiresSecretKey: false,
   ),
   RoleOption(
@@ -70,118 +70,129 @@ class RoleSelectionScreen extends StatefulWidget {
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   RoleOption? _selected;
 
-  void _continue() {
-    if (_selected == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SignupScreen(role: _selected!),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.surface,
+      appBar: AppBar(
+        backgroundColor: AppTheme.surface,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        elevation: 0,
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── Brand ──────────────────────────────────────────────
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'A',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 38,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Role Selection',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Select the role that best describes you',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // ── Role tiles ─────────────────────────────────────────
-              ...kRoles.map(
-                (role) => _RoleTile(
-                  role: role,
-                  isSelected: _selected?.roleName == role.roleName,
-                  onTap: () => setState(() => _selected = role),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ── Continue button ────────────────────────────────────
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _selected == null ? null : _continue,
-                  child: const Text('Continue'),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Sign-in link ───────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Header ───────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Already have an account? ',
+                    'Who are you?',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Select the role that best describes you',
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.textSecondary,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
-                    ),
-                    child: const Text(
-                      'Sign In',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 28),
                 ],
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
+            ),
+
+            // ── Role tiles ─────────────────────────────────────────
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                itemCount: kRoles.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) {
+                  final role = kRoles[i];
+                  final isSelected =
+                      _selected?.roleName == role.roleName;
+                  return _RoleTile(
+                    role: role,
+                    isSelected: isSelected,
+                    onTap: () =>
+                        setState(() => _selected = role),
+                  );
+                },
+              ),
+            ),
+
+            // ── Bottom area ─────────────────────────────────────────
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Continue button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _selected == null
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        SignupScreen(role: _selected!),
+                                  ),
+                                ),
+                        child: const Text('Continue'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Sign-in link
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Already have an account?  ',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () =>
+                              Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
+                          ),
+                          child: const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -206,32 +217,32 @@ class _RoleTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryLight : AppTheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppTheme.primary : AppTheme.border,
-            width: isSelected ? 1.5 : 1,
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
-            // Icon badge
+            // Icon
             Container(
-              width: 44,
-              height: 44,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color:
-                    isSelected ? AppTheme.primary : AppTheme.primaryLight,
-                borderRadius: BorderRadius.circular(10),
+                color: isSelected
+                    ? AppTheme.primary
+                    : AppTheme.background,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 role.icon,
                 color: isSelected ? Colors.white : AppTheme.primary,
-                size: 22,
+                size: 24,
               ),
             ),
             const SizedBox(width: 14),
@@ -246,10 +257,10 @@ class _RoleTile extends StatelessWidget {
                       Text(
                         role.label,
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                           fontSize: 15,
                           color: isSelected
-                              ? AppTheme.primary
+                              ? AppTheme.primaryDark
                               : AppTheme.textPrimary,
                         ),
                       ),
@@ -257,17 +268,17 @@ class _RoleTile extends StatelessWidget {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                              horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.amber.shade100,
-                            borderRadius: BorderRadius.circular(4),
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(
+                          child: const Text(
                             'Key required',
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.amber.shade800,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF92400E),
                             ),
                           ),
                         ),
@@ -280,26 +291,28 @@ class _RoleTile extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
+                      height: 1.4,
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
 
-            // Radio indicator
-            Radio<String>(
-              value: role.roleName,
-              groupValue: _selected(isSelected, role.roleName),
-              onChanged: (_) => onTap(),
-              activeColor: AppTheme.primary,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            // Selection indicator
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: isSelected
+                  ? const Icon(Icons.check_circle_rounded,
+                      color: AppTheme.primary, size: 24,
+                      key: ValueKey('checked'))
+                  : Icon(Icons.radio_button_unchecked_rounded,
+                      color: AppTheme.border, size: 24,
+                      key: const ValueKey('unchecked')),
             ),
           ],
         ),
       ),
     );
   }
-
-  String? _selected(bool isSelected, String roleName) =>
-      isSelected ? roleName : null;
 }

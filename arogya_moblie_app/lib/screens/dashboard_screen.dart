@@ -1,383 +1,318 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../app_theme.dart';
-import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
-import '../services/user_api_service.dart';
+import '../providers/auth_provider.dart';
 import 'admin_shell.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   static const routeName = '/dashboard';
   const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  Map<String, dynamic>? _patientProfile;
-  bool _profileLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    final user = context.read<AuthProvider>().user;
-    if (user == null) return;
-    setState(() => _profileLoading = true);
-    try {
-      final profile = await UserApiService.getPatientProfile(user.id);
-      if (mounted) setState(() => _patientProfile = profile);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _profileLoading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         final user = auth.user;
-        if (user == null) {
-          return const LoginScreen();
-        }
-        // Admin users get their own bottom-nav shell
+        if (user == null) return const LoginScreen();
         if (user.userRole.roleName.toUpperCase() == 'ADMIN') {
           return AdminShell(user: user);
         }
-        return Scaffold(
-          backgroundColor: AppTheme.background,
-          appBar: AppBar(
-            title: const Text('Dashboard'),
-          ),
-          body: RefreshIndicator(
-            color: AppTheme.primary,
-            onRefresh: () async {
-              await auth.refreshUser();
-              await _loadProfile();
-            },
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                _WelcomeBanner(user: user),
-                const SizedBox(height: 20),
-                _AccountCard(user: user),
-                const SizedBox(height: 20),
-                _ProfileCard(
-                  profile: _patientProfile,
-                  loading: _profileLoading,
-                  user: user,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ProfileScreen(user: user)),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _QuickActionsGrid(user: user),
-              ],
-            ),
-          ),
-        );
+        return _HomeScreen(user: user);
       },
     );
   }
 }
 
-// ── Welcome banner ─────────────────────────────────────────────────────────
+// ── Home screen for non-admin roles ─────────────────────────────────────────
 
-class _WelcomeBanner extends StatelessWidget {
+class _HomeScreen extends StatelessWidget {
   final User user;
-  const _WelcomeBanner({required this.user});
+  const _HomeScreen({required this.user});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppTheme.primary, AppTheme.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello, ${user.username}!',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _roleLabel(user.userRole.roleName),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.white.withValues(alpha: 0.2),
-            child: Text(
-              user.initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
-  String _roleLabel(String roleName) {
-    switch (roleName.toLowerCase()) {
-      case 'patient':
-        return 'Patient Account';
-      case 'doctor':
-        return 'Doctor Account';
-      case 'admin':
-        return 'Administrator';
-      case 'technician':
+  String get _roleLabel {
+    switch (user.userRole.roleName.toUpperCase()) {
+      case 'PATIENT':
+        return 'Patient';
+      case 'DOCTOR':
+        return 'Doctor';
+      case 'TECHNICIAN':
         return 'Lab Technician';
       default:
-        return roleName;
+        return user.userRole.roleName;
     }
   }
-}
 
-// ── Account info card ──────────────────────────────────────────────────────
+  List<_Action> _buildActions(BuildContext context) {
+    final role = user.userRole.roleName.toUpperCase();
 
-class _AccountCard extends StatelessWidget {
-  final User user;
-  const _AccountCard({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'Account Details',
-      icon: Icons.person_outline_rounded,
-      children: [
-        _InfoRow(label: 'User ID', value: '#${user.id}'),
-        _InfoRow(label: 'Username', value: user.username),
-        _InfoRow(label: 'Email', value: user.email),
-        _InfoRow(label: 'Role', value: user.userRole.roleName),
-      ],
-    );
-  }
-}
-
-// ── Patient profile card ───────────────────────────────────────────────────
-
-class _ProfileCard extends StatelessWidget {
-  final Map<String, dynamic>? profile;
-  final bool loading;
-  final User user;
-  final VoidCallback onTap;
-
-  const _ProfileCard({
-    required this.profile,
-    required this.loading,
-    required this.user,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (user.userRole.roleName.toLowerCase() != 'patient') {
-      return const SizedBox.shrink();
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      child: _SectionCard(
-        title: 'Patient Profile',
-        icon: Icons.medical_information_outlined,
-        trailing: const Icon(Icons.chevron_right_rounded,
-            color: AppTheme.textSecondary),
-        children: loading
-            ? [
-                const Center(
-                    child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: AppTheme.primary),
-                ))
-              ]
-            : profile == null
-                ? [
-                    _EmptyState(
-                      icon: Icons.add_circle_outline,
-                      message: 'No profile found. Tap to create one.',
-                    )
-                  ]
-                : [
-                    _InfoRow(
-                        label: 'Name',
-                        value:
-                            '${profile!['firstName'] ?? ''} ${profile!['lastName'] ?? ''}'
-                                .trim()),
-                    if (profile!['dateOfBirth'] != null)
-                      _InfoRow(
-                          label: 'Date of Birth',
-                          value: profile!['dateOfBirth'].toString()),
-                    if (profile!['gender'] != null)
-                      _InfoRow(
-                          label: 'Gender',
-                          value: profile!['gender'].toString()),
-                    if (profile!['bloodGroup'] != null)
-                      _InfoRow(
-                          label: 'Blood Group',
-                          value: profile!['bloodGroup'].toString()),
-                    if (profile!['phoneNumber'] != null)
-                      _InfoRow(
-                          label: 'Phone',
-                          value: profile!['phoneNumber'].toString()),
-                  ],
-      ),
-    );
-  }
-}
-
-// ── Quick actions grid ─────────────────────────────────────────────────────
-
-class _QuickActionsGrid extends StatelessWidget {
-  final User user;
-  const _QuickActionsGrid({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    final isPatient =
-        user.userRole.roleName.toLowerCase() == 'patient';
-
-    final actions = <_QuickAction>[
-      _QuickAction(
-          icon: Icons.person_outline_rounded,
-          label: 'My Profile',
-          color: AppTheme.primary,
-          onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => ProfileScreen(user: user)),
-              )),
-      if (isPatient)
-        _QuickAction(
-            icon: Icons.description_outlined,
-            label: 'Prescriptions',
-            color: const Color(0xFF6366F1),
-            onTap: () => _showComingSoon(context, 'Prescriptions')),
-      if (isPatient)
-        _QuickAction(
-            icon: Icons.science_outlined,
-            label: 'Lab Results',
-            color: const Color(0xFF10B981),
-            onTap: () => _showComingSoon(context, 'Lab Results')),
-      if (isPatient)
-        _QuickAction(
-            icon: Icons.local_hospital_outlined,
-            label: 'Mobile Clinics',
-            color: const Color(0xFFF59E0B),
-            onTap: () => _showComingSoon(context, 'Mobile Clinics')),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.4,
-          children: actions
-              .map((a) => _QuickActionTile(action: a))
-              .toList(),
-        ),
-      ],
-    );
-  }
-
-  void _showComingSoon(BuildContext ctx, String name) {
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
+    void soon(String name) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('$name — coming soon'),
         backgroundColor: AppTheme.primary,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    }
+
+    final profile = _Action(
+      icon: Icons.person_rounded,
+      label: 'My Profile',
+      color: AppTheme.primary,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ProfileScreen(user: user)),
       ),
     );
+
+    if (role == 'PATIENT') {
+      return [
+        profile,
+        _Action(
+          icon: Icons.local_hospital_rounded,
+          label: 'Clinics',
+          color: const Color(0xFFF59E0B),
+          onTap: () => soon('Clinics'),
+        ),
+        _Action(
+          icon: Icons.description_rounded,
+          label: 'Prescriptions',
+          color: const Color(0xFF6366F1),
+          onTap: () => soon('Prescriptions'),
+        ),
+        _Action(
+          icon: Icons.science_rounded,
+          label: 'Lab Results',
+          color: const Color(0xFF10B981),
+          onTap: () => soon('Lab Results'),
+        ),
+      ];
+    } else if (role == 'DOCTOR') {
+      return [
+        profile,
+        _Action(
+          icon: Icons.calendar_month_rounded,
+          label: 'My Clinics',
+          color: const Color(0xFFF59E0B),
+          onTap: () => soon('My Clinics'),
+        ),
+        _Action(
+          icon: Icons.people_rounded,
+          label: 'Patients',
+          color: const Color(0xFF6366F1),
+          onTap: () => soon('Patients'),
+        ),
+        _Action(
+          icon: Icons.medical_information_rounded,
+          label: 'Records',
+          color: const Color(0xFF10B981),
+          onTap: () => soon('Medical Records'),
+        ),
+      ];
+    } else {
+      // Technician
+      return [
+        profile,
+        _Action(
+          icon: Icons.science_rounded,
+          label: 'Lab Tests',
+          color: const Color(0xFF10B981),
+          onTap: () => soon('Lab Tests'),
+        ),
+        _Action(
+          icon: Icons.assignment_rounded,
+          label: 'Requests',
+          color: const Color(0xFFF59E0B),
+          onTap: () => soon('Requests'),
+        ),
+      ];
+    }
   }
-}
-
-class _QuickAction {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _QuickAction(
-      {required this.icon,
-      required this.label,
-      required this.color,
-      required this.onTap});
-}
-
-class _QuickActionTile extends StatelessWidget {
-  final _QuickAction action;
-  const _QuickActionTile({required this.action});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: action.onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: action.color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: action.color.withValues(alpha: 0.2)),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final actions = _buildActions(context);
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.overlayLight,
+      child: Scaffold(
+        backgroundColor: AppTheme.primary,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(action.icon, color: action.color, size: 28),
-            const SizedBox(height: 8),
-            Text(
-              action.label,
-              style: TextStyle(
-                color: action.color,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+            // ── Gradient header ────────────────────────────────────────
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _greeting,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.75),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Hello, ${user.username} 👋',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _roleLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      child: Text(
+                        user.initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── White body ─────────────────────────────────────────────
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.background,
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: RefreshIndicator(
+                  color: AppTheme.primary,
+                  onRefresh: () =>
+                      context.read<AuthProvider>().refreshUser(),
+                  child: ListView(
+                    padding:
+                        const EdgeInsets.fromLTRB(24, 28, 24, 32),
+                    children: [
+                      // ── Quick actions ──────────────────────────────
+                      const Text(
+                        'Quick Actions',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.45,
+                        children: actions
+                            .map((a) => _ActionTile(action: a))
+                            .toList(),
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      // ── Brand info strip ───────────────────────────
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.health_and_safety_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Arogya Mobile Clinics',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: AppTheme.primaryDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Quality healthcare at your doorstep',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.primaryDark
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -387,124 +322,65 @@ class _QuickActionTile extends StatelessWidget {
   }
 }
 
-// ── Reusable sub-widgets ───────────────────────────────────────────────────
+// ── Action model ──────────────────────────────────────────────────────────────
 
-class _SectionCard extends StatelessWidget {
-  final String title;
+class _Action {
   final IconData icon;
-  final Widget? trailing;
-  final List<Widget> children;
-
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    this.trailing,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Row(
-              children: [
-                Icon(icon, color: AppTheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: AppTheme.border),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: children,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
   final String label;
-  final String value;
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value.isEmpty ? '—' : value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  final Color color;
+  final VoidCallback onTap;
+  const _Action({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 }
 
-class _EmptyState extends StatelessWidget {
-  final IconData icon;
-  final String message;
-  const _EmptyState({required this.icon, required this.message});
+// ── Action tile ───────────────────────────────────────────────────────────────
+
+class _ActionTile extends StatelessWidget {
+  final _Action action;
+  const _ActionTile({required this.action});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: AppTheme.primary, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                  fontSize: 13, color: AppTheme.textSecondary),
-            ),
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: action.onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
           ),
-        ],
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: action.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(action.icon, color: action.color, size: 22),
+              ),
+              Text(
+                action.label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
