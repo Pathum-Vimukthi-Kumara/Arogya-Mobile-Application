@@ -265,6 +265,30 @@ class UserApiService {
     throw UserApiException('Failed to update admin profile', response.statusCode);
   }
 
+  // ── Bulk list endpoints (for dashboard stats) ─────────────────────
+
+  static Future<List<dynamic>> getAllPatientProfiles() async {
+    final uri = Uri.parse('$_baseUrl/patient_profile/getAllPatientProfiles');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    throw UserApiException('Failed to load patients', response.statusCode);
+  }
+
+  static Future<List<dynamic>> getAllDoctorProfiles() async {
+    final uri = Uri.parse('$_baseUrl/doctor_profile/getAllDoctorProfiles');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    throw UserApiException('Failed to load doctors', response.statusCode);
+  }
+
   // ── Register ───────────────────────────────────────────────────────
 
   /// Register a new user account.

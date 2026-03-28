@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
+import '../services/clinic_api_service.dart';
 import '../services/user_api_service.dart';
 import 'clinics_screen.dart';
 import 'login_screen.dart';
@@ -78,29 +79,72 @@ class _AdminHomeTab extends StatefulWidget {
 }
 
 class _AdminHomeTabState extends State<_AdminHomeTab> {
-  Map<String, dynamic>? _adminProfile;
-  bool _profileLoading = false;
+  bool _loading = true;
+  int _totalPatients = 0;
+  int _totalClinics = 0;
+  int _activeDoctors = 0;
+  int _scheduledClinics = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadAdminProfile();
+    _fetchStats();
   }
 
-  Future<void> _loadAdminProfile() async {
-    setState(() => _profileLoading = true);
-    try {
-      final data = await UserApiService.getAdminProfile(widget.user.id);
-      if (mounted) setState(() => _adminProfile = data);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _profileLoading = false);
+  Future<void> _fetchStats() async {
+    setState(() => _loading = true);
+    // Fetch all in parallel — same approach as the web hook
+    final results = await Future.wait([
+      UserApiService.getAllPatientProfiles().catchError((_) => <dynamic>[]),
+      UserApiService.getAllDoctorProfiles().catchError((_) => <dynamic>[]),
+      ClinicApiService.getAllClinics().catchError((_) => <dynamic>[]),
+    ]);
+
+    final patients = results[0];
+    final doctors = results[1];
+    final clinics = results[2];
+
+    if (mounted) {
+      setState(() {
+        _totalPatients = patients.length;
+        _activeDoctors = doctors.length;
+        _totalClinics = clinics.length;
+        _scheduledClinics = clinics
+            .where((c) =>
+                (c as Map<String, dynamic>)['status'] == 'SCHEDULED')
+            .length;
+        _loading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
+
+    final stats = [
+      _StatItem(
+        label: 'Total Patients',
+        value: _totalPatients,
+        icon: Icons.people_outline_rounded,
+      ),
+      _StatItem(
+        label: 'Total Clinics',
+        value: _totalClinics,
+        icon: Icons.calendar_today_outlined,
+      ),
+      _StatItem(
+        label: 'Active Doctors',
+        value: _activeDoctors,
+        icon: Icons.how_to_reg_outlined,
+      ),
+      _StatItem(
+        label: 'Scheduled Clinics',
+        value: _scheduledClinics,
+        icon: Icons.calendar_today_outlined,
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -111,98 +155,44 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
         color: AppTheme.primary,
         onRefresh: () async {
           await context.read<AuthProvider>().refreshUser();
-          await _loadAdminProfile();
+          await _fetchStats();
         },
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // ── Welcome banner ─────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primary, AppTheme.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hello, ${user.username}!',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Administrator',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor:
-                        Colors.white.withValues(alpha: 0.2),
-                    child: Text(
-                      user.initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
+            // ── Page heading (matches web) ──────────────────────────
+            Text(
+              'Dashboard',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
               ),
             ),
-            const SizedBox(height: 20),
-
-            // ── Account card ────────────────────────────────────────
-            _InfoCard(
-              title: 'Account Details',
-              icon: Icons.manage_accounts_outlined,
-              rows: [
-                _Row('User ID', '#${user.id}'),
-                _Row('Username', user.username),
-                _Row('Email', user.email),
-                _Row('Role', user.userRole.roleName),
-              ],
+            const SizedBox(height: 4),
+            Text(
+              'Admin Dashboard',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ── Admin profile card ──────────────────────────────────
-            _InfoCard(
-              title: 'Admin Profile',
-              icon: Icons.badge_outlined,
-              rows: _profileLoading
-                  ? []
-                  : _adminProfile == null
-                      ? [_Row('Info', 'No profile found')]
-                      : [
-                          _Row(
-                            'Name',
-                            '${_adminProfile!['firstName'] ?? ''} ${_adminProfile!['lastName'] ?? ''}'
-                                .trim(),
-                          ),
-                          if (_adminProfile!['phoneNumber'] != null)
-                            _Row('Phone',
-                                _adminProfile!['phoneNumber'].toString()),
-                          if (_adminProfile!['nicNumber'] != null)
-                            _Row('NIC',
-                                _adminProfile!['nicNumber'].toString()),
-                        ],
-              loading: _profileLoading,
+            // ── 2×2 stat cards grid ─────────────────────────────────
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.35,
+              ),
+              itemCount: stats.length,
+              itemBuilder: (_, i) =>
+                  _StatCard(item: stats[i], loading: _loading),
             ),
           ],
         ),
@@ -211,26 +201,22 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
   }
 }
 
-// ── Reusable sub-widgets ─────────────────────────────────────────────────────
+// ── Stat card data ────────────────────────────────────────────────────────────
 
-class _Row {
+class _StatItem {
   final String label;
-  final String value;
-  const _Row(this.label, this.value);
+  final int value;
+  final IconData icon;
+  const _StatItem(
+      {required this.label, required this.value, required this.icon});
 }
 
-class _InfoCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final List<_Row> rows;
-  final bool loading;
+// ── Stat card widget (matches web card design) ────────────────────────────────
 
-  const _InfoCard({
-    required this.title,
-    required this.icon,
-    required this.rows,
-    this.loading = false,
-  });
+class _StatCard extends StatelessWidget {
+  final _StatItem item;
+  final bool loading;
+  const _StatCard({required this.item, required this.loading});
 
   @override
   Widget build(BuildContext context) {
@@ -240,71 +226,59 @@ class _InfoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.border),
       ),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Row(
-              children: [
-                Icon(icon, color: AppTheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ],
+          // Label
+          Text(
+            item.label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
             ),
           ),
-          const Divider(height: 1, color: AppTheme.border),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: loading
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(8),
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppTheme.primary),
-                    ),
-                  )
-                : Column(
-                    children: rows
-                        .map((r) => Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 5),
-                              child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 110,
-                                    child: Text(
-                                      r.label,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      r.value.isEmpty ? '—' : r.value,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ))
-                        .toList(),
-                  ),
+          // Value row + icon
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Number
+              Expanded(
+                child: loading
+                    ? Container(
+                        height: 32,
+                        width: 60,
+                        decoration: BoxDecoration(
+                          color: AppTheme.border,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      )
+                    : Text(
+                        item.value.toString(),
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                          height: 1,
+                        ),
+                      ),
+              ),
+              // Icon badge
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  item.icon,
+                  color: AppTheme.primary,
+                  size: 22,
+                ),
+              ),
+            ],
           ),
         ],
       ),
