@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../app_theme.dart';
 import '../providers/auth_provider.dart';
 import 'dashboard_screen.dart';
-import 'signup_screen.dart';
+import 'role_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   static const routeName = '/login';
@@ -253,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     GestureDetector(
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => const SignupScreen()),
+                            builder: (_) => const RoleSelectionScreen()),
                       ),
                       child: const Text(
                         'Create account',
