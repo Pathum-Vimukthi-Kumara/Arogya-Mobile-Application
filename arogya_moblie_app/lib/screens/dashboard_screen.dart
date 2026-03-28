@@ -4,6 +4,7 @@ import '../app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
 import '../services/user_api_service.dart';
+import 'admin_shell.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
 
@@ -45,6 +46,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final user = auth.user;
         if (user == null) {
           return const LoginScreen();
+        }
+        // Admin users get their own bottom-nav shell
+        if (user.userRole.roleName.toUpperCase() == 'ADMIN') {
+          return AdminShell(user: user);
         }
         return Scaffold(
           backgroundColor: AppTheme.background,
