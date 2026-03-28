@@ -38,38 +38,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _confirmLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Log out?',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        content: const Text('You will be returned to the sign-in screen.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
-            child: const Text('Log out'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (confirmed == true) {
-      await context.read<AuthProvider>().logout();
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -82,21 +50,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           backgroundColor: AppTheme.background,
           appBar: AppBar(
             title: const Text('Dashboard'),
-            actions: [
-              IconButton(
-                tooltip: 'Refresh',
-                icon: const Icon(Icons.refresh_rounded),
-                onPressed: () {
-                  auth.refreshUser();
-                  _loadProfile();
-                },
-              ),
-              IconButton(
-                tooltip: 'Log out',
-                icon: const Icon(Icons.logout_rounded),
-                onPressed: _confirmLogout,
-              ),
-            ],
           ),
           body: RefreshIndicator(
             color: AppTheme.primary,

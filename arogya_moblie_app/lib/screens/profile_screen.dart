@@ -4,6 +4,7 @@ import '../app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
 import '../services/user_api_service.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   static const routeName = '/profile';
@@ -396,11 +397,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   : 'Save Changes'),
                         ),
                       ),
+                    const SizedBox(height: 32),
+
+                    // ── Sign out ─────────────────────────────────────
+                    OutlinedButton.icon(
+                      onPressed: _confirmLogout,
+                      icon: const Icon(Icons.logout_rounded,
+                          size: 18, color: AppTheme.error),
+                      label: const Text('Sign Out',
+                          style: TextStyle(color: AppTheme.error)),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 48),
+                        side: const BorderSide(color: AppTheme.error),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign out?',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text('You will be returned to the sign-in screen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
     );
   }
 
