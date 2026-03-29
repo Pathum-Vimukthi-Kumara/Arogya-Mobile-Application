@@ -648,8 +648,19 @@ class _ClinicFormSheetState extends State<_ClinicFormSheet> {
     try {
       final raw = await UserApiService.getAllDoctorProfiles();
       if (mounted) {
+        // Raw profile has: id, firstName, lastName, specialization
+        // Normalise to: doctorId, name, specialization — mirrors the web frontend transform
+        final doctors = raw.cast<Map<String, dynamic>>().map((p) {
+          final first = p['firstName']?.toString() ?? '';
+          final last  = p['lastName']?.toString() ?? '';
+          return <String, dynamic>{
+            'doctorId':       p['id'],
+            'name':           'Dr. $first $last'.trim(),
+            'specialization': p['specialization']?.toString() ?? '',
+          };
+        }).toList();
         setState(() {
-          _allDoctors = raw.cast<Map<String, dynamic>>();
+          _allDoctors = doctors;
           _loadingDoctors = false;
         });
       }
