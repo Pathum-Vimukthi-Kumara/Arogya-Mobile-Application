@@ -141,6 +141,9 @@ class AppTheme {
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: surface,
           indicatorColor: primaryLight,
+          indicatorShape: const CircleBorder(
+          side: BorderSide(color: Colors.transparent, width: 12), // Adds padding
+          ),
           surfaceTintColor: Colors.transparent,
           elevation: 8,
           shadowColor: Colors.black12,

@@ -755,6 +755,9 @@ class _ClinicFormSheetState extends State<_ClinicFormSheet> {
           colorScheme: const ColorScheme.light(
               primary: AppTheme.primary,
               onPrimary: Colors.white),
+          timePickerTheme: const TimePickerThemeData(
+            dayPeriodBorderSide: BorderSide(color: Colors.black26, width: 0.5),
+          ),
         ),
         child: child!,
       ),
