@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../services/clinic_api_service.dart';
 import '../services/user_api_service.dart';
 import 'clinics_screen.dart';
+import 'login_screen.dart';
 import 'profile_screen.dart';
 
 /// Bottom-nav shell shown only for ADMIN users.
@@ -96,6 +97,39 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Sign out?',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        content: const Text('You will be returned to the sign-in screen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await context.read<AuthProvider>().logout();
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   Future<void> _fetchStats() async {
@@ -211,6 +245,13 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
                       ),
                     ),
                     const SizedBox(width: 16),
+                    IconButton(
+                      onPressed: () => _confirmLogout(context),
+                      icon: const Icon(Icons.logout_rounded),
+                      color: Colors.white,
+                      tooltip: 'Sign Out',
+                    ),
+                    const SizedBox(width: 4),
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: Colors.white.withValues(alpha: 0.2),
