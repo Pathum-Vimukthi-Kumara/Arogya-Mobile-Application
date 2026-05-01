@@ -124,7 +124,49 @@ class _HomeScreen extends StatelessWidget {
         isScrollControlled: true,
         useSafeArea: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => _ConsultationRecordsSheet(currentUser: user),
+        builder: (_) => _ConsultationRecordsSheet(
+          currentUser: user,
+          patientId: null,
+          doctorId: user.id,
+          title: 'Consultation Records',
+          showDoctorAsPrimary: false,
+        ),
+      );
+    }
+
+    void openPrescriptions() {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _ConsultationRecordsSheet(
+          currentUser: user,
+          patientId: user.id,
+          doctorId: null,
+          title: 'Prescriptions',
+          showDoctorAsPrimary: true,
+        ),
+      );
+    }
+
+    void openPatientClinics() {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _PatientClinicsSheet(currentUser: user),
+      );
+    }
+
+    void openLabResults() {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _PatientLabResultsSheet(currentUser: user),
       );
     }
 
@@ -135,19 +177,19 @@ class _HomeScreen extends StatelessWidget {
           icon: Icons.local_hospital_rounded,
           label: 'Clinics',
           color: const Color(0xFFF59E0B),
-          onTap: () => soon('Clinics'),
+          onTap: openPatientClinics,
         ),
         _Action(
           icon: Icons.description_rounded,
           label: 'Prescriptions',
           color: const Color(0xFF6366F1),
-          onTap: () => soon('Prescriptions'),
+          onTap: openPrescriptions,
         ),
         _Action(
           icon: Icons.science_rounded,
           label: 'Lab Results',
           color: const Color(0xFF10B981),
-          onTap: () => soon('Lab Results'),
+          onTap: openLabResults,
         ),
       ];
     } else if (role == 'DOCTOR') {
@@ -932,8 +974,18 @@ String _formatDateTime(String? raw) {
 
 class _ConsultationRecordsSheet extends StatefulWidget {
   final User currentUser;
+  final int? patientId;
+  final int? doctorId;
+  final String title;
+  final bool showDoctorAsPrimary;
 
-  const _ConsultationRecordsSheet({required this.currentUser});
+  const _ConsultationRecordsSheet({
+    required this.currentUser,
+    required this.patientId,
+    required this.doctorId,
+    required this.title,
+    required this.showDoctorAsPrimary,
+  });
 
   @override
   State<_ConsultationRecordsSheet> createState() =>
@@ -944,6 +996,7 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
   List<Map<String, dynamic>> _consultations = [];
   final Map<int, String> _patientNames = {};
   final Map<int, String> _clinicNames = {};
+  final Map<int, String> _doctorNames = {};
   bool _loading = true;
   String? _error;
 
@@ -961,7 +1014,8 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
 
     try {
       final data = await ConsultationApiService.list(
-        doctorId: widget.currentUser.id,
+        patientId: widget.patientId,
+        doctorId: widget.doctorId,
         page: 0,
         size: 100,
       );
@@ -991,6 +1045,11 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
         .whereType<int>()
         .where((id) => !_clinicNames.containsKey(id))
         .toSet();
+    final doctorIds = consultations
+      .map((row) => _asInt(row['doctorId']))
+      .whereType<int>()
+      .where((id) => !_doctorNames.containsKey(id))
+      .toSet();
 
     for (final id in patientIds) {
       try {
@@ -1025,6 +1084,30 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
         _clinicNames[id] = 'Clinic #$id';
       }
     }
+
+    for (final id in doctorIds) {
+      try {
+        final profile = await UserApiService.getDoctorProfile(id);
+        final firstName = profile?['firstName']?.toString() ?? '';
+        final lastName = profile?['lastName']?.toString() ?? '';
+        final name = [
+          firstName,
+          lastName,
+        ].where((part) => part.trim().isNotEmpty).join(' ');
+        if (name.isNotEmpty) {
+          _doctorNames[id] = name;
+          continue;
+        }
+      } catch (_) {}
+
+      try {
+        final user = await UserApiService.getUserById(id);
+        _doctorNames[id] =
+            user.username.isNotEmpty ? user.username : 'Doctor #$id';
+      } catch (_) {
+        _doctorNames[id] = 'Doctor #$id';
+      }
+    }
   }
 
   static int? _asInt(dynamic value) {
@@ -1043,6 +1126,12 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
     final id = _asInt(consultation['clinicId']);
     if (id == null) return 'Clinic';
     return _clinicNames[id] ?? 'Clinic #$id';
+  }
+
+  String _doctorName(Map<String, dynamic> consultation) {
+    final id = _asInt(consultation['doctorId']);
+    if (id == null) return 'Doctor';
+    return _doctorNames[id] ?? 'Doctor #$id';
   }
 
   Future<void> _openDetails(Map<String, dynamic> consultation) async {
@@ -1090,9 +1179,9 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
-                          const Text(
-                            'Consultation Records',
-                            style: TextStyle(
+                          Text(
+                            widget.title,
+                            style: const TextStyle(
                               color: AppTheme.textPrimary,
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
@@ -1160,7 +1249,9 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _ConsultationRecordCard(
                                 consultation: consultation,
-                                patientName: _patientName(consultation),
+                                primaryName: widget.showDoctorAsPrimary
+                                    ? _doctorName(consultation)
+                                    : _patientName(consultation),
                                 clinicName: _clinicName(consultation),
                                 onTap: () => _openDetails(consultation),
                               ),
@@ -1179,13 +1270,13 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
 
 class _ConsultationRecordCard extends StatelessWidget {
   final Map<String, dynamic> consultation;
-  final String patientName;
+  final String primaryName;
   final String clinicName;
   final VoidCallback onTap;
 
   const _ConsultationRecordCard({
     required this.consultation,
-    required this.patientName,
+    required this.primaryName,
     required this.clinicName,
     required this.onTap,
   });
@@ -1233,7 +1324,7 @@ class _ConsultationRecordCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          patientName,
+                          primaryName,
                           style: const TextStyle(
                             color: AppTheme.textPrimary,
                             fontSize: 15,
@@ -2682,6 +2773,460 @@ class _Action {
     required this.color,
     required this.onTap,
   });
+}
+
+// ── Patient Clinics Sheet ─────────────────────────────────────────────────────
+
+class _PatientClinicsSheet extends StatefulWidget {
+  final User currentUser;
+
+  const _PatientClinicsSheet({required this.currentUser});
+
+  @override
+  State<_PatientClinicsSheet> createState() => _PatientClinicsSheetState();
+}
+
+class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
+  List<Map<String, dynamic>> _clinics = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClinics();
+  }
+
+  Future<void> _loadClinics() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await ClinicApiService.getAllClinics();
+      if (!mounted) return;
+      setState(() {
+        _clinics = data
+            .whereType<Map>()
+            .map((clinic) => Map<String, dynamic>.from(clinic))
+            .where((clinic) => clinic['status'] == 'SCHEDULED')
+            .toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.55,
+      maxChildSize: 0.96,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.border,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                          const Text(
+                            'Available Clinics',
+                            style: TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_clinics.length} scheduled clinics',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _loadClinics,
+                      icon: const Icon(Icons.refresh_rounded),
+                      color: AppTheme.primary,
+                      tooltip: 'Refresh',
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                      color: AppTheme.textSecondary,
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  color: AppTheme.primary,
+                  onRefresh: _loadClinics,
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null
+                      ? ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(20),
+                          children: [
+                            _PanelMessage(
+                              icon: Icons.cloud_off_rounded,
+                              title: 'Failed to load clinics',
+                              message: _error!,
+                              actionLabel: 'Retry',
+                              onAction: _loadClinics,
+                            ),
+                          ],
+                        )
+                      : _clinics.isEmpty
+                      ? ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(20),
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 80),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.event_busy_rounded,
+                                    color: AppTheme.textSecondary,
+                                    size: 48,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'No scheduled clinics',
+                                    style: TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Check back later for upcoming clinics.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                          itemCount: _clinics.length,
+                          itemBuilder: (_, index) {
+                            final clinic = _clinics[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _PatientClinicCard(clinic: clinic),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PatientClinicCard extends StatelessWidget {
+  final Map<String, dynamic> clinic;
+
+  const _PatientClinicCard({required this.clinic});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = (clinic['status'] ?? 'SCHEDULED').toString();
+    final statusColor = _statusColor(status);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  (clinic['clinicName'] ?? 'Unnamed Clinic').toString(),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _StatusBadge(status: status, color: statusColor),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _InfoLine(
+            icon: Icons.location_on_outlined,
+            text:
+                '${clinic['district'] ?? '-'} - ${clinic['province'] ?? '-'}',
+          ),
+          const SizedBox(height: 4),
+          _InfoLine(
+            icon: Icons.schedule_rounded,
+            text:
+                '${clinic['scheduledDate'] ?? '-'} at ${clinic['scheduledTime'] ?? '-'}',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Patient Lab Results Sheet ─────────────────────────────────────────────────
+
+class _PatientLabResultsSheet extends StatefulWidget {
+  final User currentUser;
+
+  const _PatientLabResultsSheet({required this.currentUser});
+
+  @override
+  State<_PatientLabResultsSheet> createState() =>
+      _PatientLabResultsSheetState();
+}
+
+class _PatientLabResultsSheetState extends State<_PatientLabResultsSheet> {
+  List<Map<String, dynamic>> _results = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadResults();
+  }
+
+  Future<void> _loadResults() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final consultations = await ConsultationApiService.list(
+        patientId: widget.currentUser.id,
+        page: 0,
+        size: 100,
+      );
+
+      final allTests = <Map<String, dynamic>>[];
+      for (final consultation in consultations) {
+        final consultationId = consultation['id'];
+        if (consultationId is int) {
+          try {
+            final tests = await LabTestApiService.getByConsultation(
+              consultationId,
+            );
+            allTests.addAll(tests);
+          } catch (_) {}
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _results = allTests;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.55,
+      maxChildSize: 0.96,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.border,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                          const Text(
+                            'Lab Results',
+                            style: TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_results.length} test results',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _loadResults,
+                      icon: const Icon(Icons.refresh_rounded),
+                      color: AppTheme.primary,
+                      tooltip: 'Refresh',
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                      color: AppTheme.textSecondary,
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  color: AppTheme.primary,
+                  onRefresh: _loadResults,
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null
+                      ? ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(20),
+                          children: [
+                            _PanelMessage(
+                              icon: Icons.cloud_off_rounded,
+                              title: 'Failed to load results',
+                              message: _error!,
+                              actionLabel: 'Retry',
+                              onAction: _loadResults,
+                            ),
+                          ],
+                        )
+                      : _results.isEmpty
+                      ? ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(20),
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 80),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.science_outlined,
+                                    color: AppTheme.textSecondary,
+                                    size: 48,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'No lab results',
+                                    style: TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Your lab test results will appear here.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                          itemCount: _results.length,
+                          itemBuilder: (_, index) {
+                            final test = _results[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _LabTestRecordCard(test: test),
+                            );
+                          },
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 // ── Action tile ───────────────────────────────────────────────────────────────
