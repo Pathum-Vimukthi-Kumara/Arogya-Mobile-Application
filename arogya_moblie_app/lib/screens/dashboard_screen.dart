@@ -2788,6 +2788,10 @@ class _PatientClinicsSheet extends StatefulWidget {
 
 class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
   List<Map<String, dynamic>> _clinics = [];
+  final Map<int, Map<String, dynamic>> _joinedTokens = {};
+  final Map<int, int> _waitingCounts = {};
+  final Set<int> _joiningClinicIds = {};
+  final Set<int> _cancelingClinicIds = {};
   bool _loading = true;
   String? _error;
 
@@ -2805,13 +2809,46 @@ class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
 
     try {
       final data = await ClinicApiService.getAllClinics();
+      final clinics = data
+          .whereType<Map>()
+          .map((clinic) => Map<String, dynamic>.from(clinic))
+          .where((clinic) => clinic['status'] == 'SCHEDULED')
+          .toList();
+      final joinedTokens = <int, Map<String, dynamic>>{};
+      final waitingCounts = <int, int>{};
+
+      await Future.wait(clinics.map((clinic) async {
+        final clinicId = clinic['id'];
+        if (clinicId is! int) return;
+        try {
+          final queue = await QueueApiService.getClinicQueue(
+            clinicId.toString(),
+          );
+          final tokens = queue
+              .whereType<Map>()
+              .map((token) => Map<String, dynamic>.from(token))
+              .toList();
+          waitingCounts[clinicId] = tokens.length;
+
+          for (final token in tokens) {
+            if (token['patientId']?.toString() ==
+                widget.currentUser.id.toString()) {
+              joinedTokens[clinicId] = token;
+              break;
+            }
+          }
+        } catch (_) {}
+      }));
+
       if (!mounted) return;
       setState(() {
-        _clinics = data
-            .whereType<Map>()
-            .map((clinic) => Map<String, dynamic>.from(clinic))
-            .where((clinic) => clinic['status'] == 'SCHEDULED')
-            .toList();
+        _clinics = clinics;
+        _joinedTokens
+          ..clear()
+          ..addAll(joinedTokens);
+        _waitingCounts
+          ..clear()
+          ..addAll(waitingCounts);
         _loading = false;
       });
     } catch (e) {
@@ -2821,6 +2858,110 @@ class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _joinQueue(Map<String, dynamic> clinic) async {
+    final clinicId = clinic['id'];
+    if (clinicId is! int) {
+      _showSnack('Clinic data is invalid.', success: false);
+      return;
+    }
+    if (_joinedTokens.containsKey(clinicId) ||
+        _joiningClinicIds.contains(clinicId)) {
+      return;
+    }
+
+    setState(() => _joiningClinicIds.add(clinicId));
+
+    try {
+      final token = await QueueApiService.createToken(
+        clinicId: clinicId.toString(),
+        patientId: widget.currentUser.id.toString(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _joinedTokens[clinicId] = token;
+        final position = token['position'];
+        _waitingCounts[clinicId] = position is int
+            ? position
+            : (_waitingCounts[clinicId] ?? 0) + 1;
+        _joiningClinicIds.remove(clinicId);
+      });
+      _showSnack(
+        'Joined queue. Token #${token['tokenNumber'] ?? '-'}',
+        success: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _joiningClinicIds.remove(clinicId));
+      _showSnack('Failed to join queue: $e', success: false);
+    }
+  }
+
+  Future<void> _cancelQueue(Map<String, dynamic> clinic) async {
+    final clinicId = clinic['id'];
+    if (clinicId is! int) {
+      _showSnack('Clinic data is invalid.', success: false);
+      return;
+    }
+
+    final token = _joinedTokens[clinicId];
+    final tokenId = token?['id'];
+    if (tokenId is! int) {
+      _showSnack('Queue token is invalid.', success: false);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Cancel queue token'),
+        content: const Text(
+          'Are you sure you want to cancel your queue token for this clinic?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Cancel token'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancelingClinicIds.add(clinicId));
+
+    try {
+      await QueueApiService.updateStatus(tokenId, 'CANCELLED');
+      if (!mounted) return;
+      setState(() => _cancelingClinicIds.remove(clinicId));
+      await _loadClinics();
+      if (mounted) {
+        _showSnack('Queue token cancelled.', success: true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cancelingClinicIds.remove(clinicId));
+      _showSnack('Failed to cancel queue: $e', success: false);
+    }
+  }
+
+  void _showSnack(String message, {required bool success}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: success ? AppTheme.success : AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   @override
@@ -2951,9 +3092,25 @@ class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
                           itemCount: _clinics.length,
                           itemBuilder: (_, index) {
                             final clinic = _clinics[index];
+                            final clinicId = clinic['id'];
+                            final joinedToken = clinicId is int
+                                ? _joinedTokens[clinicId]
+                                : null;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 10),
-                              child: _PatientClinicCard(clinic: clinic),
+                              child: _PatientClinicCard(
+                                clinic: clinic,
+                                joinedToken: joinedToken,
+                                waitingCount: clinicId is int
+                                    ? _waitingCounts[clinicId]
+                                    : null,
+                                joining: clinicId is int &&
+                                    _joiningClinicIds.contains(clinicId),
+                                canceling: clinicId is int &&
+                                    _cancelingClinicIds.contains(clinicId),
+                                onJoin: () => _joinQueue(clinic),
+                                onCancel: () => _cancelQueue(clinic),
+                              ),
                             );
                           },
                         ),
@@ -2969,13 +3126,28 @@ class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
 
 class _PatientClinicCard extends StatelessWidget {
   final Map<String, dynamic> clinic;
+  final Map<String, dynamic>? joinedToken;
+  final int? waitingCount;
+  final bool joining;
+  final bool canceling;
+  final VoidCallback onJoin;
+  final VoidCallback onCancel;
 
-  const _PatientClinicCard({required this.clinic});
+  const _PatientClinicCard({
+    required this.clinic,
+    required this.joinedToken,
+    required this.waitingCount,
+    required this.joining,
+    required this.canceling,
+    required this.onJoin,
+    required this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
     final status = (clinic['status'] ?? 'SCHEDULED').toString();
     final statusColor = _statusColor(status);
+    final isJoined = joinedToken != null;
 
     return Container(
       decoration: BoxDecoration(
@@ -3015,6 +3187,99 @@ class _PatientClinicCard extends StatelessWidget {
             icon: Icons.schedule_rounded,
             text:
                 '${clinic['scheduledDate'] ?? '-'} at ${clinic['scheduledTime'] ?? '-'}',
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _InfoLine(
+                  icon: Icons.groups_2_outlined,
+                  text: waitingCount == null
+                      ? 'Queue status unavailable'
+                      : '$waitingCount waiting in queue',
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (isJoined)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: AppTheme.success.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: Text(
+                        'Token #${joinedToken?['tokenNumber'] ?? '-'}',
+                        style: const TextStyle(
+                          color: AppTheme.success,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 32,
+                      child: OutlinedButton.icon(
+                        onPressed: canceling ? null : onCancel,
+                        icon: canceling
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.error,
+                                ),
+                              )
+                            : const Icon(Icons.close_rounded, size: 14),
+                        label: Text(canceling ? 'Cancelling' : 'Cancel'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.error,
+                          side: const BorderSide(color: AppTheme.error),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          textStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                SizedBox(
+                  height: 36,
+                  child: ElevatedButton.icon(
+                    onPressed: joining ? null : onJoin,
+                    icon: joining
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.login_rounded, size: 16),
+                    label: Text(joining ? 'Joining' : 'Join Queue'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

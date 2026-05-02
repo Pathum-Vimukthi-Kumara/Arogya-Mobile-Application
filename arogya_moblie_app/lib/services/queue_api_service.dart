@@ -21,6 +21,27 @@ class QueueApiService {
     throw Exception('Failed to load queue (${response.statusCode})');
   }
 
+  static Future<Map<String, dynamic>> createToken({
+    required String clinicId,
+    required String patientId,
+    String? consultationId,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/queue/tokens');
+    final body = <String, dynamic>{
+      'clinicId': clinicId,
+      'patientId': patientId,
+      if (consultationId != null) 'consultationId': consultationId,
+    };
+    final response = await http
+        .post(uri, headers: _headers, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to join queue (${response.statusCode})');
+  }
+
   static Future<Map<String, dynamic>> updateStatus(
     int tokenId,
     String status,
