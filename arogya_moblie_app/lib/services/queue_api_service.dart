@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class QueueApiService {
-  static const String _baseUrl = 'http://10.0.2.2:8085';
+  static const String _baseUrl = 'http://localhost:8085';
 
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',

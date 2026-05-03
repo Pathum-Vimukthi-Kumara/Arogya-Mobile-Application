@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ConsultationApiService {
-  static const String _baseUrl = 'http://10.0.2.2:8086';
+  static const String _baseUrl = 'http://localhost:8086';
 
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',
@@ -62,6 +62,18 @@ class ConsultationApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     throw Exception(_message(response, 'Failed to create consultation'));
+  }
+
+  static Future<Map<String, dynamic>> get(int consultationId) async {
+    final uri = Uri.parse('$_baseUrl/consultations/$consultationId');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception(_message(response, 'Failed to load consultation'));
   }
 
   static Future<Map<String, dynamic>> updateStatus(
