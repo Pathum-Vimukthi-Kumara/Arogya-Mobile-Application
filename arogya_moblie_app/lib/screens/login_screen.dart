@@ -116,8 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Container(
                 decoration: const BoxDecoration(
                   color: AppTheme.surface,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(32)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                 ),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
@@ -169,15 +168,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           autofillHints: const [AutofillHints.email],
                           decoration: const InputDecoration(
                             hintText: 'you@example.com',
-                            prefixIcon: Icon(Icons.email_outlined,
-                                color: AppTheme.textHint),
+                            prefixIcon: Icon(
+                              Icons.email_outlined,
+                              color: AppTheme.textHint,
+                            ),
                           ),
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
                               return 'Email is required';
                             }
-                            if (!RegExp(r'^[\w.+-]+@[\w-]+\.[a-z]{2,}$')
-                                .hasMatch(v.trim())) {
+                            if (!RegExp(
+                              r'^[\w.+-]+@[\w-]+\.[a-z]{2,}$',
+                            ).hasMatch(v.trim())) {
                               return 'Enter a valid email';
                             }
                             return null;
@@ -195,8 +197,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           onFieldSubmitted: (_) => _submit(),
                           decoration: InputDecoration(
                             hintText: '••••••••',
-                            prefixIcon: const Icon(Icons.lock_outline,
-                                color: AppTheme.textHint),
+                            prefixIcon: const Icon(
+                              Icons.lock_outline,
+                              color: AppTheme.textHint,
+                            ),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
@@ -205,14 +209,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: AppTheme.textHint,
                                 size: 20,
                               ),
-                              onPressed: () => setState(() =>
-                                  _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                           ),
-                          validator: (v) =>
-                              v == null || v.isEmpty
-                                  ? 'Password is required'
-                                  : null,
+                          validator: (v) => v == null || v.isEmpty
+                              ? 'Password is required'
+                              : null,
                         ),
                         const SizedBox(height: 28),
 
@@ -241,17 +245,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text(
-                              "Don't have an account?  ",
-                              style: TextStyle(
+                            Flexible(
+                              child: Text(
+                                "Don't have an account?  ",
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: AppTheme.textSecondary),
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
                             ),
                             GestureDetector(
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
-                                    builder: (_) =>
-                                        const RoleSelectionScreen()),
+                                  builder: (_) => const RoleSelectionScreen(),
+                                ),
                               ),
                               child: const Text(
                                 'Create account',
@@ -286,13 +293,13 @@ class _Label extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textPrimary,
-        ),
-      );
+    text,
+    style: const TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.textPrimary,
+    ),
+  );
 }
 
 class _ErrorBanner extends StatelessWidget {
@@ -308,25 +315,21 @@ class _ErrorBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border:
-            Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline,
-              color: AppTheme.error, size: 18),
+          const Icon(Icons.error_outline, color: AppTheme.error, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                  color: AppTheme.error, fontSize: 13),
+              style: const TextStyle(color: AppTheme.error, fontSize: 13),
             ),
           ),
           GestureDetector(
             onTap: onClose,
-            child: const Icon(Icons.close,
-                color: AppTheme.error, size: 18),
+            child: const Icon(Icons.close, color: AppTheme.error, size: 18),
           ),
         ],
       ),

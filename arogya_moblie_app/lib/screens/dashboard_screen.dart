@@ -12,6 +12,7 @@ import '../services/user_api_service.dart';
 import 'admin_shell.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'lab_tests_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   static const routeName = '/dashboard';
@@ -231,14 +232,19 @@ class _HomeScreen extends StatelessWidget {
           icon: Icons.science_rounded,
           label: 'Lab Tests',
           color: const Color(0xFF10B981),
-          onTap: () => soon('Lab Tests'),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LabTestsScreen(currentUser: user),
+            ),
+          ),
         ),
-        _Action(
-          icon: Icons.assignment_rounded,
-          label: 'Requests',
-          color: const Color(0xFFF59E0B),
-          onTap: () => soon('Requests'),
-        ),
+        // _Action(
+        //   icon: Icons.assignment_rounded,
+        //   label: 'Requests',
+        //   color: const Color(0xFFF59E0B),
+        //   onTap: () => soon('Requests'),
+        // ),
       ];
     }
   }
@@ -1046,10 +1052,10 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
         .where((id) => !_clinicNames.containsKey(id))
         .toSet();
     final doctorIds = consultations
-      .map((row) => _asInt(row['doctorId']))
-      .whereType<int>()
-      .where((id) => !_doctorNames.containsKey(id))
-      .toSet();
+        .map((row) => _asInt(row['doctorId']))
+        .whereType<int>()
+        .where((id) => !_doctorNames.containsKey(id))
+        .toSet();
 
     for (final id in patientIds) {
       try {
@@ -1102,8 +1108,9 @@ class _ConsultationRecordsSheetState extends State<_ConsultationRecordsSheet> {
 
       try {
         final user = await UserApiService.getUserById(id);
-        _doctorNames[id] =
-            user.username.isNotEmpty ? user.username : 'Doctor #$id';
+        _doctorNames[id] = user.username.isNotEmpty
+            ? user.username
+            : 'Doctor #$id';
       } catch (_) {
         _doctorNames[id] = 'Doctor #$id';
       }
@@ -2817,28 +2824,30 @@ class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
       final joinedTokens = <int, Map<String, dynamic>>{};
       final waitingCounts = <int, int>{};
 
-      await Future.wait(clinics.map((clinic) async {
-        final clinicId = clinic['id'];
-        if (clinicId is! int) return;
-        try {
-          final queue = await QueueApiService.getClinicQueue(
-            clinicId.toString(),
-          );
-          final tokens = queue
-              .whereType<Map>()
-              .map((token) => Map<String, dynamic>.from(token))
-              .toList();
-          waitingCounts[clinicId] = tokens.length;
+      await Future.wait(
+        clinics.map((clinic) async {
+          final clinicId = clinic['id'];
+          if (clinicId is! int) return;
+          try {
+            final queue = await QueueApiService.getClinicQueue(
+              clinicId.toString(),
+            );
+            final tokens = queue
+                .whereType<Map>()
+                .map((token) => Map<String, dynamic>.from(token))
+                .toList();
+            waitingCounts[clinicId] = tokens.length;
 
-          for (final token in tokens) {
-            if (token['patientId']?.toString() ==
-                widget.currentUser.id.toString()) {
-              joinedTokens[clinicId] = token;
-              break;
+            for (final token in tokens) {
+              if (token['patientId']?.toString() ==
+                  widget.currentUser.id.toString()) {
+                joinedTokens[clinicId] = token;
+                break;
+              }
             }
-          }
-        } catch (_) {}
-      }));
+          } catch (_) {}
+        }),
+      );
 
       if (!mounted) return;
       setState(() {
@@ -3104,9 +3113,11 @@ class _PatientClinicsSheetState extends State<_PatientClinicsSheet> {
                                 waitingCount: clinicId is int
                                     ? _waitingCounts[clinicId]
                                     : null,
-                                joining: clinicId is int &&
+                                joining:
+                                    clinicId is int &&
                                     _joiningClinicIds.contains(clinicId),
-                                canceling: clinicId is int &&
+                                canceling:
+                                    clinicId is int &&
                                     _cancelingClinicIds.contains(clinicId),
                                 onJoin: () => _joinQueue(clinic),
                                 onCancel: () => _cancelQueue(clinic),
@@ -3179,8 +3190,7 @@ class _PatientClinicCard extends StatelessWidget {
           const SizedBox(height: 8),
           _InfoLine(
             icon: Icons.location_on_outlined,
-            text:
-                '${clinic['district'] ?? '-'} - ${clinic['province'] ?? '-'}',
+            text: '${clinic['district'] ?? '-'} - ${clinic['province'] ?? '-'}',
           ),
           const SizedBox(height: 4),
           _InfoLine(

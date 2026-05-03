@@ -7,7 +7,7 @@ import '../models/user_model.dart';
 /// Change [_baseUrl] to your actual server IP for a physical device.
 class UserApiService {
   // ── change this to your server's IP when running on a real device ──
-  static const String _baseUrl = 'http://10.0.2.2:8081';
+  static const String _baseUrl = 'http://localhost:8081';
 
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',
@@ -41,7 +41,10 @@ class UserApiService {
     } on UserApiException {
       rethrow;
     } catch (e) {
-      throw UserApiException('Cannot connect to server. Check your network.', 0);
+      throw UserApiException(
+        'Cannot connect to server. Check your network.',
+        0,
+      );
     }
   }
 
@@ -100,20 +103,34 @@ class UserApiService {
   // ── Patient profile ────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getPatientProfile(int userId) async {
-    final uri =
-        Uri.parse('$_baseUrl/patient_profile/getPatientProfileByUserId/$userId');
-    final response = await http
-        .get(uri, headers: _headers)
-        .timeout(const Duration(seconds: 15));
+    final uri = Uri.parse(
+      '$_baseUrl/patient_profile/getPatientProfileByUserId/$userId',
+    );
+    try {
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else if (response.statusCode == 404) {
+        // Patient profile doesn't exist yet
+        return null;
+      } else {
+        // Log the error for debugging
+        print('ERROR: getPatientProfile failed with status ${response.statusCode}');
+        print('Response: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('ERROR: getPatientProfile exception: $e');
+      return null;
     }
-    return null;
   }
 
   static Future<Map<String, dynamic>> createPatientProfile(
-      Map<String, dynamic> profile) async {
+    Map<String, dynamic> profile,
+  ) async {
     final uri = Uri.parse('$_baseUrl/patient_profile/createPatientProfile');
     final response = await http
         .post(uri, headers: _headers, body: jsonEncode(profile))
@@ -122,11 +139,15 @@ class UserApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw UserApiException('Failed to create patient profile', response.statusCode);
+    throw UserApiException(
+      'Failed to create patient profile',
+      response.statusCode,
+    );
   }
 
   static Future<Map<String, dynamic>> updatePatientProfile(
-      Map<String, dynamic> profile) async {
+    Map<String, dynamic> profile,
+  ) async {
     final uri = Uri.parse('$_baseUrl/patient_profile/updatePatientProfile');
     final response = await http
         .put(uri, headers: _headers, body: jsonEncode(profile))
@@ -135,14 +156,18 @@ class UserApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw UserApiException('Failed to update patient profile', response.statusCode);
+    throw UserApiException(
+      'Failed to update patient profile',
+      response.statusCode,
+    );
   }
 
   // ── Doctor profile ─────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getDoctorProfile(int userId) async {
-    final uri =
-        Uri.parse('$_baseUrl/doctor_profile/getDoctorProfileByUserId/$userId');
+    final uri = Uri.parse(
+      '$_baseUrl/doctor_profile/getDoctorProfileByUserId/$userId',
+    );
     final response = await http
         .get(uri, headers: _headers)
         .timeout(const Duration(seconds: 15));
@@ -154,7 +179,8 @@ class UserApiService {
   }
 
   static Future<Map<String, dynamic>> createDoctorProfile(
-      Map<String, dynamic> profile) async {
+    Map<String, dynamic> profile,
+  ) async {
     final uri = Uri.parse('$_baseUrl/doctor_profile/createDoctorProfile');
     final response = await http
         .post(uri, headers: _headers, body: jsonEncode(profile))
@@ -163,11 +189,15 @@ class UserApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw UserApiException('Failed to create doctor profile', response.statusCode);
+    throw UserApiException(
+      'Failed to create doctor profile',
+      response.statusCode,
+    );
   }
 
   static Future<Map<String, dynamic>> updateDoctorProfile(
-      Map<String, dynamic> profile) async {
+    Map<String, dynamic> profile,
+  ) async {
     final uri = Uri.parse('$_baseUrl/doctor_profile/updateDoctorProfile');
     final response = await http
         .put(uri, headers: _headers, body: jsonEncode(profile))
@@ -176,14 +206,18 @@ class UserApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw UserApiException('Failed to update doctor profile', response.statusCode);
+    throw UserApiException(
+      'Failed to update doctor profile',
+      response.statusCode,
+    );
   }
 
   // ── Technician profile ─────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getTechnicianProfile(int userId) async {
     final uri = Uri.parse(
-        '$_baseUrl/technician_profile/getTechnicianProfileByUserId/$userId');
+      '$_baseUrl/technician_profile/getTechnicianProfileByUserId/$userId',
+    );
     final response = await http
         .get(uri, headers: _headers)
         .timeout(const Duration(seconds: 15));
@@ -195,9 +229,11 @@ class UserApiService {
   }
 
   static Future<Map<String, dynamic>> createTechnicianProfile(
-      Map<String, dynamic> profile) async {
-    final uri =
-        Uri.parse('$_baseUrl/technician_profile/createTechnicianProfile');
+    Map<String, dynamic> profile,
+  ) async {
+    final uri = Uri.parse(
+      '$_baseUrl/technician_profile/createTechnicianProfile',
+    );
     final response = await http
         .post(uri, headers: _headers, body: jsonEncode(profile))
         .timeout(const Duration(seconds: 15));
@@ -206,13 +242,17 @@ class UserApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     throw UserApiException(
-        'Failed to create technician profile', response.statusCode);
+      'Failed to create technician profile',
+      response.statusCode,
+    );
   }
 
   static Future<Map<String, dynamic>> updateTechnicianProfile(
-      Map<String, dynamic> profile) async {
-    final uri =
-        Uri.parse('$_baseUrl/technician_profile/updateTechnicianProfile');
+    Map<String, dynamic> profile,
+  ) async {
+    final uri = Uri.parse(
+      '$_baseUrl/technician_profile/updateTechnicianProfile',
+    );
     final response = await http
         .put(uri, headers: _headers, body: jsonEncode(profile))
         .timeout(const Duration(seconds: 15));
@@ -221,14 +261,17 @@ class UserApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     throw UserApiException(
-        'Failed to update technician profile', response.statusCode);
+      'Failed to update technician profile',
+      response.statusCode,
+    );
   }
 
   // ── Admin profile ──────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> getAdminProfile(int userId) async {
-    final uri =
-        Uri.parse('$_baseUrl/admin_profile/getAdminProfileByUserId/$userId');
+    final uri = Uri.parse(
+      '$_baseUrl/admin_profile/getAdminProfileByUserId/$userId',
+    );
     final response = await http
         .get(uri, headers: _headers)
         .timeout(const Duration(seconds: 15));
@@ -240,7 +283,8 @@ class UserApiService {
   }
 
   static Future<Map<String, dynamic>> createAdminProfile(
-      Map<String, dynamic> profile) async {
+    Map<String, dynamic> profile,
+  ) async {
     final uri = Uri.parse('$_baseUrl/admin_profile/createAdminProfile');
     final response = await http
         .post(uri, headers: _headers, body: jsonEncode(profile))
@@ -249,11 +293,15 @@ class UserApiService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw UserApiException('Failed to create admin profile', response.statusCode);
+    throw UserApiException(
+      'Failed to create admin profile',
+      response.statusCode,
+    );
   }
 
   static Future<Map<String, dynamic>> updateAdminProfile(
-      Map<String, dynamic> profile) async {
+    Map<String, dynamic> profile,
+  ) async {
     final uri = Uri.parse('$_baseUrl/admin_profile/updateAdminProfile');
     final response = await http
         .put(uri, headers: _headers, body: jsonEncode(profile))
@@ -262,7 +310,10 @@ class UserApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    throw UserApiException('Failed to update admin profile', response.statusCode);
+    throw UserApiException(
+      'Failed to update admin profile',
+      response.statusCode,
+    );
   }
 
   // ── Bulk list endpoints (for dashboard stats) ─────────────────────
@@ -308,10 +359,7 @@ class UserApiService {
       'username': username,
       'email': email,
       'password': password,
-      'userRole': {
-        'id': roleId,
-        'roleName': roleName,
-      },
+      'userRole': {'id': roleId, 'roleName': roleName},
     };
     if (secretKey != null && secretKey.isNotEmpty) {
       body['secretKey'] = secretKey;
@@ -332,16 +380,23 @@ class UserApiService {
         } else if (response.statusCode == 401 || response.statusCode == 403) {
           msg = 'Invalid secret key. Please check your credentials.';
         } else if (response.statusCode == 400) {
-          msg = json?['message'] ?? 'Invalid registration data. Please check your information.';
+          msg =
+              json?['message'] ??
+              'Invalid registration data. Please check your information.';
         } else {
-          msg = json?['message'] ?? 'Registration failed (${response.statusCode})';
+          msg =
+              json?['message'] ??
+              'Registration failed (${response.statusCode})';
         }
         throw UserApiException(msg, response.statusCode);
       }
     } on UserApiException {
       rethrow;
     } catch (e) {
-      throw UserApiException('Cannot connect to server. Check your network.', 0);
+      throw UserApiException(
+        'Cannot connect to server. Check your network.',
+        0,
+      );
     }
   }
 
