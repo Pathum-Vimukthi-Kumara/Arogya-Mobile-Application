@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -18,10 +19,48 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final PageController _pageController = PageController();
+  Timer? _carouselTimer;
+  int _currentSlide = 0;
   bool _obscurePassword = true;
+
+  final List<Map<String, String>> _carouselItems = const [
+    {
+      'image': 'assets/images/clinic_van.jpg',
+      'tag': 'Community Healthcare on Wheels',
+    },
+    {
+      'image': 'assets/images/clinic_consult.jpg',
+      'tag': 'Doctor Consultations & Care',
+    },
+    {
+      'image': 'assets/images/clinic_team.jpg',
+      'tag': 'Dedicated Arogya Medical Staff',
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _startCarouselTimer();
+  }
+
+  void _startCarouselTimer() {
+    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted || !_pageController.hasClients) return;
+      final nextIndex = (_currentSlide + 1) % _carouselItems.length;
+      _pageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
 
   @override
   void dispose() {
+    _carouselTimer?.cancel();
+    _pageController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -52,62 +91,186 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: AppTheme.primary,
         body: Column(
           children: [
-            // ── Hero section (teal) ──────────────────────────────────
+            // ── Hero section (carousel + branding) ───────────────────
             SizedBox(
-              height: size.height * 0.36,
-              child: SafeArea(
-                bottom: false,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 76,
-                        height: 76,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
+              height: (size.height * 0.38).clamp(260.0, 320.0),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // 1. Carousel background images
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: _carouselItems.length,
+                    onPageChanged: (idx) {
+                      setState(() => _currentSlide = idx);
+                    },
+                    itemBuilder: (context, index) {
+                      return Image.asset(
+                        _carouselItems[index]['image']!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      );
+                    },
+                  ),
+
+                  // 2. Teal brand gradient overlay
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.50),
+                          AppTheme.primaryDark.withValues(alpha: 0.60),
+                          AppTheme.primaryDark.withValues(alpha: 0.90),
+                        ],
+                        stops: const [0.0, 0.55, 1.0],
+                      ),
+                    ),
+                  ),
+
+                  // 3. Hero content (Logo + Title + Subtitle + Tagline + Dots)
+                  SafeArea(
+                    bottom: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Arogya Logo
+                            Container(
+                              width: 76,
+                              height: 76,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  width: 2.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(19.5),
+                                child: Image.asset(
+                                  'assets/images/arogya_logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Brand Name
+                            const Text(
+                              'Arogya',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black45,
+                                    blurRadius: 12,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+
+                            // Brand Subtitle
+                            Text(
+                              'Mobile Clinics',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.92),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.4,
+                                shadows: const [
+                                  Shadow(
+                                    color: Colors.black38,
+                                    blurRadius: 8,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Carousel Slide Tagline Chip
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: Container(
+                                key: ValueKey<int>(_currentSlide),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.28),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Text(
+                                  _carouselItems[_currentSlide]['tag']!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Interactive Carousel Page Indicator Dots
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                _carouselItems.length,
+                                (index) => GestureDetector(
+                                  onTap: () {
+                                    _pageController.animateToPage(
+                                      index,
+                                      duration: const Duration(milliseconds: 400),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 3.5,
+                                    ),
+                                    width: _currentSlide == index ? 22 : 6.5,
+                                    height: 6.5,
+                                    decoration: BoxDecoration(
+                                      color: _currentSlide == index
+                                          ? Colors.white
+                                          : Colors.white.withValues(alpha: 0.45),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'A',
-                          style: TextStyle(
-                            color: AppTheme.primary,
-                            fontSize: 42,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                        ),
                       ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Arogya',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Mobile Clinics',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
 

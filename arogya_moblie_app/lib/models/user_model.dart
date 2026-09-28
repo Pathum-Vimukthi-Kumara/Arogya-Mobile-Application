@@ -43,6 +43,20 @@ class User {
             json['userRole'] as Map<String, dynamic>? ?? {}),
       );
 
+  /// `/users/login` returns a flat shape (`{id, token, username, email,
+  /// role}`), not the nested `userRole` object the other endpoints return.
+  /// Using [User.fromJson] on it throws, since `role` is a plain string.
+  factory User.fromLoginJson(Map<String, dynamic> json) => User(
+        id: json['id'] as int,
+        username: json['username'] as String? ?? '',
+        email: json['email'] as String? ?? '',
+        userRole: UserRole(
+          id: 0,
+          roleName: json['role'] as String? ?? '',
+          roleDescription: '',
+        ),
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'username': username,

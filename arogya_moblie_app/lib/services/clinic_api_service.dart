@@ -1,14 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'api_auth.dart';
 
 /// Connects to the Arogya clinic-service (port 8082).
 class ClinicApiService {
-  static const String _baseUrl = 'http://localhost:8082';
+  static const String _baseUrl = 'http://10.0.2.2:8082';
 
-  static const Map<String, String> _headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  static Map<String, String> get _headers => ApiAuth.headers();
 
   // ── Clinics ────────────────────────────────────────────────────────
 

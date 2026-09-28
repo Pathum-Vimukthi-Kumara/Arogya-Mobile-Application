@@ -19,7 +19,7 @@ void main() {
         child: const ArogyaApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(ArogyaApp), findsOneWidget);
   });

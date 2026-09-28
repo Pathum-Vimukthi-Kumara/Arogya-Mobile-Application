@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import '../app_theme.dart';
 import '../models/user_model.dart';
 import '../services/lab_test_api_service.dart';
 import '../services/consultation_api_service.dart';
 import '../services/user_api_service.dart';
+import '../services/test_results_api_service.dart';
 
 class LabTestsScreen extends StatefulWidget {
   static const routeName = '/lab-tests';
@@ -77,7 +79,10 @@ class _LabTestsScreenState extends State<LabTestsScreen> {
       });
 
       // Hydrate patient details and result presence in parallel
-      await Future.wait([_hydratePatientDetails(tests)], eagerError: false);
+      await Future.wait([
+        _hydratePatientDetails(tests),
+        _hydrateResultExistence(tests),
+      ], eagerError: false);
 
       if (mounted) {
         setState(() {
@@ -161,6 +166,309 @@ class _LabTestsScreenState extends State<LabTestsScreen> {
         }
       }
     }
+  }
+
+  Future<void> _hydrateResultExistence(List<Map<String, dynamic>> tests) async {
+    for (final test in tests) {
+      final id = test['id'] as int?;
+      final status = test['status']?.toString() ?? 'PENDING';
+      if (id == null || (status != 'PENDING' && status != 'IN_PROGRESS')) {
+        continue;
+      }
+      try {
+        final result = await TestResultsApiService.getByLabTestId(id);
+        if (mounted) {
+          setState(() {
+            _resultExistsByLabTest[id] = result != null;
+          });
+        }
+      } catch (_) {
+        // Leave unset; treated as no result yet.
+      }
+    }
+  }
+
+  Future<void> _submitTestResult(Map<String, dynamic> test) async {
+    final consultationId = test['consultationId'] as int?;
+    final patientInfo = _patientByConsultation[consultationId];
+    final patientId = patientInfo?['patientId'] as int?;
+
+    if (patientId == null || patientId == 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to resolve patient for this lab test. Please refresh and try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final descriptionCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    bool submitting = false;
+    String? dialogError;
+    PlatformFile? pickedFile;
+
+    const allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+    const maxFileSizeBytes = 10 * 1024 * 1024;
+    const mimeTypesByExtension = {
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+    };
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Submit Test Result'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Test: ${test['testName'] ?? 'Unknown'}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 12),
+                    if (dialogError != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          dialogError!,
+                          style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    TextField(
+                      controller: descriptionCtrl,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Test Result Description *',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: notesCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Technician Notes (optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              final result = await FilePicker.platform.pickFiles(
+                                type: FileType.custom,
+                                allowedExtensions: allowedExtensions,
+                                withData: true,
+                              );
+                              final file = result?.files.single;
+                              if (file == null) return;
+                              if (file.size > maxFileSizeBytes) {
+                                setDialogState(() {
+                                  dialogError = 'File size must be less than 10MB';
+                                });
+                                return;
+                              }
+                              setDialogState(() {
+                                pickedFile = file;
+                                dialogError = null;
+                              });
+                            },
+                      icon: const Icon(Icons.attach_file_rounded, size: 18),
+                      label: Text(pickedFile == null ? 'Attach File (optional)' : 'Change File'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primary,
+                        side: const BorderSide(color: AppTheme.primary),
+                      ),
+                    ),
+                    if (pickedFile != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.description_outlined, size: 16, color: AppTheme.textSecondary),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${pickedFile!.name} (${(pickedFile!.size / 1024).toStringAsFixed(1)} KB)',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: submitting
+                                ? null
+                                : () => setDialogState(() => pickedFile = null),
+                            child: const Text(
+                              'Remove',
+                              style: TextStyle(fontSize: 12, color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const Text(
+                      'PDF, DOC, DOCX, JPG, PNG (max 10MB)',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: submitting
+                      ? null
+                      : () async {
+                          if (descriptionCtrl.text.trim().isEmpty) {
+                            setDialogState(() {
+                              dialogError = 'Test result description is required';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            submitting = true;
+                            dialogError = null;
+                          });
+                          try {
+                            final extension = pickedFile?.extension?.toLowerCase();
+                            await TestResultsApiService.create(
+                              labTestId: test['id'] as int,
+                              patientId: patientId,
+                              technicianId: widget.currentUser.id,
+                              testResultDescription: descriptionCtrl.text.trim(),
+                              technicianNotes: notesCtrl.text.trim().isEmpty
+                                  ? null
+                                  : notesCtrl.text.trim(),
+                              fileBytes: pickedFile?.bytes,
+                              fileName: pickedFile?.name,
+                              mimeType: extension != null
+                                  ? mimeTypesByExtension[extension]
+                                  : null,
+                            );
+                            if (mounted) {
+                              setState(() {
+                                _resultExistsByLabTest[test['id'] as int] = true;
+                              });
+                              _filterTests();
+                            }
+                            if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Test result submitted'),
+                                  backgroundColor: AppTheme.primary,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() {
+                              submitting = false;
+                              dialogError = e.toString().replaceFirst('Exception: ', '');
+                            });
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Submit Result'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _viewTestResult(Map<String, dynamic> test) async {
+    final id = test['id'] as int?;
+    if (id == null) return;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => FutureBuilder<Map<String, dynamic>?>(
+        future: TestResultsApiService.getByLabTestId(id),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AlertDialog(
+              content: SizedBox(
+                height: 80,
+                child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+              ),
+            );
+          }
+          final result = snapshot.data;
+          if (result == null) {
+            return AlertDialog(
+              title: const Text('No Result'),
+              content: const Text('No result has been submitted for this test yet.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          }
+          return AlertDialog(
+            title: const Text('Test Result'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    result['testResultDescription']?.toString() ?? '-',
+                  ),
+                  if ((result['technicianNotes']?.toString() ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Text('Notes:', style: TextStyle(fontWeight: FontWeight.w600)),
+                    Text(result['technicianNotes'].toString()),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   String _getDisplayStatus(Map<String, dynamic> test) {
@@ -596,21 +904,7 @@ class _LabTestsScreenState extends State<LabTestsScreen> {
                                       displayStatus == 'PENDING' ||
                                           displayStatus == 'IN_PROGRESS'
                                       ? ElevatedButton.icon(
-                                          onPressed: () {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: const Text(
-                                                  'Take Test - Coming Soon',
-                                                ),
-                                                backgroundColor:
-                                                    AppTheme.primary,
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                              ),
-                                            );
-                                          },
+                                          onPressed: () => _submitTestResult(test),
                                           icon: const Icon(
                                             Icons.play_arrow_rounded,
                                             size: 18,
@@ -626,21 +920,7 @@ class _LabTestsScreenState extends State<LabTestsScreen> {
                                           ),
                                         )
                                       : OutlinedButton(
-                                          onPressed: () {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: const Text(
-                                                  'View Result - Coming Soon',
-                                                ),
-                                                backgroundColor:
-                                                    AppTheme.primary,
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                              ),
-                                            );
-                                          },
+                                          onPressed: () => _viewTestResult(test),
                                           child: const Text('View Result'),
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: AppTheme.primary,

@@ -1,24 +1,23 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import 'api_auth.dart';
 
 /// Connects to the Arogya user-service (port 8081).
 /// On Android emulator, 10.0.2.2 maps to host machine's localhost.
 /// Change [_baseUrl] to your actual server IP for a physical device.
 class UserApiService {
   // ── change this to your server's IP when running on a real device ──
-  static const String _baseUrl = 'http://localhost:8081';
+  static const String _baseUrl = 'http://10.0.2.2:8081';
 
-  static const Map<String, String> _headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  static Map<String, String> get _headers => ApiAuth.headers();
 
   // ── Auth ───────────────────────────────────────────────────────────
 
   /// Login with email + password.
+  /// Returns the logged-in user plus the JWT to use for subsequent calls.
   /// Throws [UserApiException] on error.
-  static Future<User> login({
+  static Future<({User user, String token})> login({
     required String email,
     required String password,
   }) async {
@@ -32,7 +31,7 @@ class UserApiService {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return User.fromJson(json);
+        return (user: User.fromLoginJson(json), token: json['token'] as String? ?? '');
       } else {
         final json = _tryDecode(response.body);
         final msg = json?['message'] ?? 'Login failed (${response.statusCode})';

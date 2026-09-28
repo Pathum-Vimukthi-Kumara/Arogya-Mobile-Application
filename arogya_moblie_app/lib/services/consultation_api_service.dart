@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'api_auth.dart';
 
 class ConsultationApiService {
-  static const String _baseUrl = 'http://localhost:8086';
+  static const String _baseUrl = 'http://10.0.2.2:8096';
 
-  static const Map<String, String> _headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  static Map<String, String> get _headers => ApiAuth.headers();
 
   static Future<List<Map<String, dynamic>>> list({
     int? patientId,
@@ -89,6 +87,45 @@ class ConsultationApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     throw Exception(_message(response, 'Failed to update consultation'));
+  }
+
+  /// Updates any subset of chiefComplaint / presentIllness /
+  /// pastMedicalHistory / recommendations for an existing consultation.
+  static Future<Map<String, dynamic>> update(
+    int consultationId,
+    Map<String, dynamic> data,
+  ) async {
+    final uri = Uri.parse('$_baseUrl/consultations/$consultationId');
+    final response = await http
+        .put(uri, headers: _headers, body: jsonEncode(data))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception(_message(response, 'Failed to update consultation'));
+  }
+
+  static Future<void> delete(int consultationId) async {
+    final uri = Uri.parse('$_baseUrl/consultations/$consultationId');
+    final response = await http
+        .delete(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_message(response, 'Failed to delete consultation'));
+    }
+  }
+
+  static Future<void> bulkDelete(List<int> ids) async {
+    final uri = Uri.parse('$_baseUrl/consultations/bulk-delete');
+    final response = await http
+        .post(uri, headers: _headers, body: jsonEncode(ids))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_message(response, 'Failed to delete consultations'));
+    }
   }
 
   static Future<Map<String, dynamic>> complete(int consultationId) async {
