@@ -108,13 +108,15 @@ class DoctorShell extends StatefulWidget {
 
 class _DoctorShellState extends State<DoctorShell> {
   int _index = 0;
+  final GlobalKey<_DoctorStatsPanelState> _doctorStatsKey =
+      GlobalKey<_DoctorStatsPanelState>();
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      _HomeScreen(user: widget.user),
+      _HomeScreen(user: widget.user, doctorStatsKey: _doctorStatsKey),
       _DoctorClinicsTab(currentUser: widget.user),
       ProfileScreen(user: widget.user),
     ];
@@ -144,7 +146,12 @@ class _DoctorShellState extends State<DoctorShell> {
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          if (i == 0 && _index != 0) {
+            _doctorStatsKey.currentState?.fetchStats(silent: true);
+          }
+          setState(() => _index = i);
+        },
         backgroundColor: AppTheme.surface,
         indicatorColor: AppTheme.primaryLight,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -192,13 +199,18 @@ class TechnicianShell extends StatefulWidget {
 
 class _TechnicianShellState extends State<TechnicianShell> {
   int _index = 0;
+  final GlobalKey<_TechnicianStatsPanelState> _technicianStatsKey =
+      GlobalKey<_TechnicianStatsPanelState>();
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      _HomeScreen(user: widget.user),
+      _HomeScreen(
+        user: widget.user,
+        technicianStatsKey: _technicianStatsKey,
+      ),
       LabTestsScreen(currentUser: widget.user),
       ProfileScreen(user: widget.user),
     ];
@@ -228,7 +240,12 @@ class _TechnicianShellState extends State<TechnicianShell> {
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          if (i == 0 && _index != 0) {
+            _technicianStatsKey.currentState?.fetchStats(silent: true);
+          }
+          setState(() => _index = i);
+        },
         backgroundColor: AppTheme.surface,
         indicatorColor: AppTheme.primaryLight,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -240,9 +257,28 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
 // ── Home screen for non-admin roles ─────────────────────────────────────────
 
-class _HomeScreen extends StatelessWidget {
+class _HomeScreen extends StatefulWidget {
   final User user;
-  const _HomeScreen({required this.user});
+  final GlobalKey<_DoctorStatsPanelState>? doctorStatsKey;
+  final GlobalKey<_TechnicianStatsPanelState>? technicianStatsKey;
+
+  const _HomeScreen({
+    required this.user,
+    this.doctorStatsKey,
+    this.technicianStatsKey,
+  });
+
+  @override
+  State<_HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<_HomeScreen> {
+  late final GlobalKey<_DoctorStatsPanelState> _doctorKey =
+      widget.doctorStatsKey ?? GlobalKey<_DoctorStatsPanelState>();
+  late final GlobalKey<_TechnicianStatsPanelState> _techKey =
+      widget.technicianStatsKey ?? GlobalKey<_TechnicianStatsPanelState>();
+
+  User get user => widget.user;
 
   Future<void> _confirmLogout(BuildContext context) async {
     final auth = context.read<AuthProvider>();
@@ -426,7 +462,7 @@ class _HomeScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Hello, ${user.username} 👋',
+                            'Hello, ${user.username}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
@@ -490,17 +526,32 @@ class _HomeScreen extends StatelessWidget {
                 ),
                 child: RefreshIndicator(
                   color: AppTheme.primary,
-                  onRefresh: () => context.read<AuthProvider>().refreshUser(),
+                  onRefresh: () async {
+                    await Future.wait([
+                      context.read<AuthProvider>().refreshUser(),
+                      if (user.userRole.roleName.toUpperCase() == 'DOCTOR')
+                        _doctorKey.currentState?.fetchStats() ?? Future.value(),
+                      if (user.userRole.roleName.toUpperCase() ==
+                          'TECHNICIAN')
+                        _techKey.currentState?.fetchStats() ?? Future.value(),
+                    ]);
+                  },
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
                     children: [
                       if (user.userRole.roleName.toUpperCase() == 'DOCTOR') ...[
-                        _DoctorStatsPanel(currentUser: user),
+                        _DoctorStatsPanel(
+                          key: _doctorKey,
+                          currentUser: user,
+                        ),
                         const SizedBox(height: 28),
                       ],
                       if (user.userRole.roleName.toUpperCase() ==
                           'TECHNICIAN') ...[
-                        _TechnicianStatsPanel(currentUser: user),
+                        _TechnicianStatsPanel(
+                          key: _techKey,
+                          currentUser: user,
+                        ),
                         const SizedBox(height: 28),
                       ],
                       if (actions.isNotEmpty) ...[
@@ -595,7 +646,7 @@ class _HomeScreen extends StatelessWidget {
 
 class _DoctorStatsPanel extends StatefulWidget {
   final User currentUser;
-  const _DoctorStatsPanel({required this.currentUser});
+  const _DoctorStatsPanel({super.key, required this.currentUser});
 
   @override
   State<_DoctorStatsPanel> createState() => _DoctorStatsPanelState();
@@ -611,11 +662,13 @@ class _DoctorStatsPanelState extends State<_DoctorStatsPanel> {
   @override
   void initState() {
     super.initState();
-    _fetchStats();
+    fetchStats();
   }
 
-  Future<void> _fetchStats() async {
-    setState(() => _loading = true);
+  Future<void> fetchStats({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _loading = true);
+    }
     final results = await Future.wait([
       UserApiService.getAllPatientProfiles().catchError((_) => <dynamic>[]),
       ClinicApiService.getAllClinics().catchError((_) => <dynamic>[]),
@@ -696,7 +749,7 @@ class _DoctorStatsPanelState extends State<_DoctorStatsPanel> {
 
 class _TechnicianStatsPanel extends StatefulWidget {
   final User currentUser;
-  const _TechnicianStatsPanel({required this.currentUser});
+  const _TechnicianStatsPanel({super.key, required this.currentUser});
 
   @override
   State<_TechnicianStatsPanel> createState() => _TechnicianStatsPanelState();
@@ -712,23 +765,64 @@ class _TechnicianStatsPanelState extends State<_TechnicianStatsPanel> {
   @override
   void initState() {
     super.initState();
-    _fetchStats();
+    fetchStats();
   }
 
-  Future<void> _fetchStats() async {
-    setState(() => _loading = true);
-    final tests = await LabTestApiService.list(
-      size: 1000,
-    ).catchError((_) => <Map<String, dynamic>>[]);
+  Future<void> fetchStats({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _loading = true);
+    }
+    try {
+      final tests = await LabTestApiService.list(
+        size: 1000,
+      ).catchError((_) => <Map<String, dynamic>>[]);
 
-    if (!mounted) return;
-    setState(() {
-      _total = tests.length;
-      _pending = tests.where((t) => t['status'] == 'PENDING').length;
-      _inProgress = tests.where((t) => t['status'] == 'IN_PROGRESS').length;
-      _completed = tests.where((t) => t['status'] == 'COMPLETED').length;
-      _loading = false;
-    });
+      if (!mounted) return;
+
+      // Hydrate true completion status from medical-records-service submitted results
+      final effectiveStatuses = await Future.wait(
+        tests.map((t) async {
+          final rawStatus =
+              (t['status']?.toString() ?? 'PENDING').toUpperCase();
+          if (rawStatus == 'COMPLETED' || rawStatus == 'CANCELLED') {
+            return rawStatus;
+          }
+
+          int? id;
+          if (t['id'] is int) {
+            id = t['id'] as int;
+          } else if (t['id'] != null) {
+            id = int.tryParse(t['id'].toString());
+          }
+
+          if (id != null) {
+            try {
+              final result = await TestResultsApiService.getByLabTestId(id);
+              if (result != null) {
+                return 'COMPLETED';
+              }
+            } catch (_) {
+              // Ignore single check error, fallback to rawStatus
+            }
+          }
+          return rawStatus;
+        }),
+        eagerError: false,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _total = tests.length;
+        _pending = effectiveStatuses.where((s) => s == 'PENDING').length;
+        _inProgress = effectiveStatuses.where((s) => s == 'IN_PROGRESS').length;
+        _completed = effectiveStatuses.where((s) => s == 'COMPLETED').length;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   @override
@@ -763,13 +857,27 @@ class _TechnicianStatsPanelState extends State<_TechnicianStatsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Overview',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Overview',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            if (_loading)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primary,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 14),
         GridView.count(

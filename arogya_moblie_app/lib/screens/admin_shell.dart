@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../services/clinic_api_service.dart';
 import '../services/user_api_service.dart';
 import 'clinics_screen.dart';
+import 'lab_tests_screen.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
 
@@ -25,11 +26,15 @@ class _AdminShellState extends State<AdminShell> {
 
   late final List<Widget> _pages;
 
+  void _setTab(int i) {
+    setState(() => _index = i);
+  }
+
   @override
   void initState() {
     super.initState();
     _pages = [
-      _AdminHomeTab(user: widget.user),
+      _AdminHomeTab(user: widget.user, onSelectTab: _setTab),
       const ClinicsScreen(),
       ProfileScreen(user: widget.user),
     ];
@@ -73,7 +78,8 @@ class _AdminShellState extends State<AdminShell> {
 
 class _AdminHomeTab extends StatefulWidget {
   final User user;
-  const _AdminHomeTab({required this.user});
+  final ValueChanged<int>? onSelectTab;
+  const _AdminHomeTab({required this.user, this.onSelectTab});
 
   @override
   State<_AdminHomeTab> createState() => _AdminHomeTabState();
@@ -99,7 +105,7 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
     return 'Good evening';
   }
 
-  Future<void> _confirmLogout(BuildContext context) async {
+  Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -123,9 +129,9 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     await context.read<AuthProvider>().logout();
-    if (!context.mounted) return;
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,
@@ -175,15 +181,15 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
         color: const Color(0xFFF59E0B),
       ),
       _StatItem(
-        label: 'Active Doctors',
-        value: _activeDoctors,
-        icon: Icons.how_to_reg_outlined,
+        label: 'Scheduled Clinics',
+        value: _scheduledClinics,
+        icon: Icons.event_available_outlined,
         color: const Color(0xFF6366F1),
       ),
       _StatItem(
-        label: 'Scheduled',
-        value: _scheduledClinics,
-        icon: Icons.event_available_outlined,
+        label: 'Active Doctors',
+        value: _activeDoctors,
+        icon: Icons.how_to_reg_outlined,
         color: const Color(0xFF10B981),
       ),
     ];
@@ -216,7 +222,7 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Hello, ${widget.user.username} 👋',
+                            'Hello, ${widget.user.username}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
@@ -246,7 +252,7 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
                     ),
                     const SizedBox(width: 16),
                     IconButton(
-                      onPressed: () => _confirmLogout(context),
+                      onPressed: _confirmLogout,
                       icon: const Icon(Icons.logout_rounded),
                       color: Colors.white,
                       tooltip: 'Sign Out',
@@ -285,7 +291,7 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
                   },
                   child: ListView(
                     padding:
-                        const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                        const EdgeInsets.fromLTRB(20, 24, 20, 28),
                     children: [
                       const Text(
                         'Overview',
@@ -296,12 +302,134 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      // ── Stat list (single column) ───────────────────
-                      ...List.generate(stats.length, (i) => Padding(
-                        padding: EdgeInsets.only(
-                            bottom: i < stats.length - 1 ? 12 : 0),
-                        child: _StatCard(item: stats[i], loading: _loading),
-                      )),
+                      // ── 2x2 Stats Grid ──────────────────────────────
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.25,
+                        children: stats
+                            .map((item) =>
+                                _StatCard(item: item, loading: _loading))
+                            .toList(),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // ── Quick actions ──────────────────────────────
+                      const Text(
+                        'Quick Actions',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.45,
+                        children: [
+                          _ActionTile(
+                            action: _AdminAction(
+                              icon: Icons.calendar_today_rounded,
+                              label: 'Manage Clinics',
+                              color: AppTheme.primary,
+                              onTap: () => widget.onSelectTab?.call(1),
+                            ),
+                          ),
+                          _ActionTile(
+                            action: _AdminAction(
+                              icon: Icons.science_rounded,
+                              label: 'Lab Tests',
+                              color: const Color(0xFF10B981),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      LabTestsScreen(currentUser: widget.user),
+                                ),
+                              ),
+                            ),
+                          ),
+                          _ActionTile(
+                            action: _AdminAction(
+                              icon: Icons.person_rounded,
+                              label: 'My Profile',
+                              color: const Color(0xFF6366F1),
+                              onTap: () => widget.onSelectTab?.call(2),
+                            ),
+                          ),
+                          _ActionTile(
+                            action: _AdminAction(
+                              icon: Icons.sync_rounded,
+                              label: 'Refresh Stats',
+                              color: const Color(0xFFF59E0B),
+                              onTap: _fetchStats,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Brand info strip ───────────────────────────
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppTheme.primary.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.health_and_safety_rounded,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Arogya Mobile Clinics',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: AppTheme.primaryDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Quality healthcare at your doorstep',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.primaryDark.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -344,100 +472,114 @@ class _StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Icon badge
           Container(
-            width: 44,
-            height: 44,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: item.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(item.icon, color: item.color, size: 22),
+            child: Icon(item.icon, color: item.color, size: 16),
           ),
-          const SizedBox(width: 16),
-          // Label + value
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.label,
+          const SizedBox(height: 6),
+          Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          loading
+              ? Container(
+                  width: 40,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppTheme.border,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                )
+              : Text(
+                  item.value.toString(),
                   style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
-                loading
-                    ? _SkeletonBox(width: 56, height: 24)
-                    : Text(
-                        item.value.toString(),
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.textPrimary,
-                          height: 1.1,
-                        ),
-                      ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-// ── Skeleton loading box ───────────────────────────────────────────────────────
+// ── Admin Quick Action data ───────────────────────────────────────────────────
 
-class _SkeletonBox extends StatefulWidget {
-  final double width;
-  final double height;
-  const _SkeletonBox({required this.width, required this.height});
+class _AdminAction {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
 
-  @override
-  State<_SkeletonBox> createState() => _SkeletonBoxState();
+  const _AdminAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 }
 
-class _SkeletonBoxState extends State<_SkeletonBox>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
+// ── Action tile widget ────────────────────────────────────────────────────────
 
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.35, end: 0.9).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+class _ActionTile extends StatelessWidget {
+  final _AdminAction action;
+  const _ActionTile({required this.action});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) => Opacity(
-        opacity: _anim.value,
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: action.onTap,
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          width: widget.width,
-          height: widget.height,
           decoration: BoxDecoration(
-            color: AppTheme.border,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: action.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(action.icon, color: action.color, size: 22),
+              ),
+              Text(
+                action.label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
           ),
         ),
       ),
