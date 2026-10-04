@@ -1,6 +1,10 @@
 <div align="center">
 
-  <img src="arogya_moblie_app/assets/images/arogya_logo_transparent.png" alt="Arogya Logo" width="140" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="arogya_moblie_app/assets/images/arogya_logo_white.png">
+    <source media="(prefers-color-scheme: light)" srcset="arogya_moblie_app/assets/images/arogya_logo_teal.png">
+    <img src="arogya_moblie_app/assets/images/arogya_logo_teal.png" alt="Arogya Logo" width="150" />
+  </picture>
 
   # Arogya Mobile Application
   ### Comprehensive Smart Healthcare & Clinical Management Mobile Suite
@@ -241,7 +245,6 @@ The mobile client integrates with the Arogya backend security standard:
 
 ---
 
-## 👨‍💻 Author & Acknowledgments
+## 👩‍💻 Author & Acknowledgments
 
-- **Pathum Vimukthi Kumara** - *Lead Developer* - [GitHub Profile](https://github.com/Pathum-Vimukthi-Kumara)
 - Developed as part of the **Arogya Healthcare Ecosystem**.
