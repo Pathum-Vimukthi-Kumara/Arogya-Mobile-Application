@@ -242,6 +242,4 @@ The mobile client integrates with the Arogya backend security standard:
 ---
 
 ## 👨‍💻 Author & Acknowledgments
-
-- **Pathum Vimukthi Kumara** - *Lead Developer* - [GitHub Profile](https://github.com/Pathum-Vimukthi-Kumara)
 - Developed as part of the **Arogya Healthcare Ecosystem**.
