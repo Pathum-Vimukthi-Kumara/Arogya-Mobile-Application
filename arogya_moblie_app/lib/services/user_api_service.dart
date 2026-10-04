@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
 import 'api_auth.dart';
@@ -117,12 +118,12 @@ class UserApiService {
         return null;
       } else {
         // Log the error for debugging
-        print('ERROR: getPatientProfile failed with status ${response.statusCode}');
-        print('Response: ${response.body}');
+        debugPrint('ERROR: getPatientProfile failed with status ${response.statusCode}');
+        debugPrint('Response: ${response.body}');
         return null;
       }
     } catch (e) {
-      print('ERROR: getPatientProfile exception: $e');
+      debugPrint('ERROR: getPatientProfile exception: $e');
       return null;
     }
   }

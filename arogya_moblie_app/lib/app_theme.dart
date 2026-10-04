@@ -3,17 +3,17 @@ import 'package:flutter/services.dart';
 
 class AppTheme {
   // ── Brand colours ──────────────────────────────────────────────────
-  static const Color primary     = Color(0xFF38A3A5);
+  static const Color primary      = Color(0xFF38A3A5);
   static const Color primaryLight = Color(0xFFE0F4F4);
-  static const Color primaryDark  = Color(0xFF2A7D7F);
+  static const Color primaryDark   = Color(0xFF2A7D7F);
 
-  static const Color background  = Color(0xFFF3F4F6); // gray-100
-  static const Color surface     = Color(0xFFFFFFFF);
-  static const Color border      = Color(0xFFE5E7EB); // gray-200
+  static const Color background   = Color(0xFFF8FAFC); // slate-50
+  static const Color surface      = Color(0xFFFFFFFF);
+  static const Color border       = Color(0xFFE2E8F0); // slate-200
 
-  static const Color textPrimary   = Color(0xFF111827); // gray-900
-  static const Color textSecondary = Color(0xFF6B7280); // gray-500
-  static const Color textHint      = Color(0xFF9CA3AF); // gray-400
+  static const Color textPrimary   = Color(0xFF0F172A); // slate-900
+  static const Color textSecondary = Color(0xFF64748B); // slate-500
+  static const Color textHint      = Color(0xFF94A3B8); // slate-400
 
   static const Color error   = Color(0xFFEF4444);
   static const Color success = Color(0xFF10B981);
@@ -67,23 +67,23 @@ class AppTheme {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: border),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: border),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: primary, width: 1.8),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: error),
           ),
           focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: error, width: 1.8),
           ),
           hintStyle: const TextStyle(color: textHint, fontSize: 14),
@@ -96,12 +96,12 @@ class AppTheme {
           style: ElevatedButton.styleFrom(
             backgroundColor: primary,
             foregroundColor: Colors.white,
-            disabledBackgroundColor: Color(0xFFB0D8D9),
+            disabledBackgroundColor: const Color(0xFFB0D8D9),
             disabledForegroundColor: Colors.white,
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(14)),
             textStyle: const TextStyle(
                 fontWeight: FontWeight.w600, fontSize: 16),
           ),
@@ -120,7 +120,7 @@ class AppTheme {
             padding:
                 const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(14)),
             textStyle: const TextStyle(
                 fontWeight: FontWeight.w600, fontSize: 15),
           ),
@@ -131,7 +131,7 @@ class AppTheme {
           color: surface,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderRadius: BorderRadius.all(Radius.circular(16)),
             side: BorderSide(color: border),
           ),
           margin: EdgeInsets.zero,
@@ -141,23 +141,23 @@ class AppTheme {
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: surface,
           indicatorColor: primaryLight,
-          indicatorShape: const CircleBorder(
-          side: BorderSide(color: Colors.transparent, width: 12), // Adds padding
+          indicatorShape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
           ),
           surfaceTintColor: Colors.transparent,
-          elevation: 8,
+          elevation: 6,
           shadowColor: Colors.black12,
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
               return const TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: primaryDark,
               );
             }
             return const TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
               color: textSecondary,
             );
           }),

@@ -962,7 +962,8 @@ class _ClinicFormSheetState extends State<_ClinicFormSheet> {
                     // ── Province ──────────────────────────────────
                     _fieldLabel('Province *'),
                     DropdownButtonFormField<String>(
-                      value: _province,
+                      key: ValueKey('province_$_province'),
+                      initialValue: _province,
                       decoration: const InputDecoration(
                           hintText: 'Select Province'),
                       items: _kProvincesDistricts.keys
@@ -981,7 +982,8 @@ class _ClinicFormSheetState extends State<_ClinicFormSheet> {
                     // ── District ──────────────────────────────────
                     _fieldLabel('District *'),
                     DropdownButtonFormField<String>(
-                      value: _district,
+                      key: ValueKey('district_${_province}_$_district'),
+                      initialValue: _district,
                       decoration: const InputDecoration(
                           hintText: 'Select District'),
                       items: (_province == null
@@ -1090,7 +1092,8 @@ class _ClinicFormSheetState extends State<_ClinicFormSheet> {
                     if (_isEdit) ...[
                       _fieldLabel('Status'),
                       DropdownButtonFormField<String>(
-                        value: _status,
+                        key: ValueKey('status_$_status'),
+                        initialValue: _status,
                         decoration: const InputDecoration(),
                         items: [
                           'SCHEDULED',

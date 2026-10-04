@@ -590,7 +590,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _FieldLabel(label, required: required),
         _editing
             ? DropdownButtonFormField<String>(
-                value: value,
+                initialValue: value,
                 decoration: InputDecoration(hintText: 'Select $label'),
                 items: items
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))

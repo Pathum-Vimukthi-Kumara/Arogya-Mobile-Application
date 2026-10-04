@@ -60,15 +60,24 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: AppTheme.surface,
-        indicatorColor: AppTheme.primaryLight,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: _destinations,
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_index != 0) {
+          setState(() => _index = 0);
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(index: _index, children: _pages),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          backgroundColor: AppTheme.surface,
+          indicatorColor: AppTheme.primaryLight,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: _destinations,
+        ),
       ),
     );
   }
@@ -173,24 +182,28 @@ class _AdminHomeTabState extends State<_AdminHomeTab> {
         value: _totalPatients,
         icon: Icons.people_outline_rounded,
         color: AppTheme.primary,
+        onTap: () => widget.onSelectTab?.call(1),
       ),
       _StatItem(
         label: 'Total Clinics',
         value: _totalClinics,
         icon: Icons.calendar_today_outlined,
         color: const Color(0xFFF59E0B),
+        onTap: () => widget.onSelectTab?.call(1),
       ),
       _StatItem(
         label: 'Scheduled Clinics',
         value: _scheduledClinics,
         icon: Icons.event_available_outlined,
         color: const Color(0xFF6366F1),
+        onTap: () => widget.onSelectTab?.call(1),
       ),
       _StatItem(
         label: 'Active Doctors',
         value: _activeDoctors,
         icon: Icons.how_to_reg_outlined,
         color: const Color(0xFF10B981),
+        onTap: () => widget.onSelectTab?.call(1),
       ),
     ];
 
@@ -449,11 +462,14 @@ class _StatItem {
   final int value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
+
   const _StatItem({
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 }
 
@@ -466,57 +482,83 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: item.onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(item.icon, color: item.color, size: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 2),
-          loading
-              ? Container(
-                  width: 40,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: AppTheme.border,
-                    borderRadius: BorderRadius.circular(6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(item.icon, color: item.color, size: 18),
                   ),
-                )
-              : Text(
-                  item.value.toString(),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
+                  if (item.onTap != null)
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 11,
+                      color: AppTheme.textHint.withValues(alpha: 0.8),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
                 ),
-        ],
+              ),
+              const SizedBox(height: 2),
+              loading
+                  ? Container(
+                      width: 44,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: AppTheme.border.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    )
+                  : Text(
+                      item.value.toString(),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -556,27 +598,45 @@ class _ActionTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppTheme.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: action.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(action.icon, color: action.color, size: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: action.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(action.icon, color: action.color, size: 22),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 13,
+                    color: AppTheme.textHint.withValues(alpha: 0.8),
+                  ),
+                ],
               ),
               Text(
                 action.label,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   color: AppTheme.textPrimary,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],

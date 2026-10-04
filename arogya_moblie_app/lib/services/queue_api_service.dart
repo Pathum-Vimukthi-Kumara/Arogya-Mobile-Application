@@ -28,7 +28,7 @@ class QueueApiService {
     final body = <String, dynamic>{
       'clinicId': clinicId,
       'patientId': patientId,
-      if (consultationId != null) 'consultationId': consultationId,
+      'consultationId': ?consultationId,
     };
     final response = await http
         .post(uri, headers: _headers, body: jsonEncode(body))

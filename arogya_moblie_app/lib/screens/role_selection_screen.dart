@@ -119,7 +119,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: kRoles.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (_, i) {
                   final role = kRoles[i];
                   final isSelected =

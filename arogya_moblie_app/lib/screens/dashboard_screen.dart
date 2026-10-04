@@ -224,21 +224,15 @@ class TechnicianShell extends StatefulWidget {
 
 class _TechnicianShellState extends State<TechnicianShell> {
   int _index = 0;
+  String _labTestsFilter = 'ALL';
   final GlobalKey<_TechnicianStatsPanelState> _technicianStatsKey =
       GlobalKey<_TechnicianStatsPanelState>();
-  late final List<Widget> _pages;
 
-  @override
-  void initState() {
-    super.initState();
-    _pages = [
-      _HomeScreen(
-        user: widget.user,
-        technicianStatsKey: _technicianStatsKey,
-      ),
-      LabTestsScreen(currentUser: widget.user),
-      ProfileScreen(user: widget.user),
-    ];
+  void _navigateToLabTests(String? filter) {
+    setState(() {
+      _labTestsFilter = filter ?? 'ALL';
+      _index = 1;
+    });
   }
 
   static const _destinations = [
@@ -261,20 +255,42 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) {
-          if (i == 0 && _index != 0) {
-            _technicianStatsKey.currentState?.fetchStats(silent: true);
-          }
-          setState(() => _index = i);
-        },
-        backgroundColor: AppTheme.surface,
-        indicatorColor: AppTheme.primaryLight,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: _destinations,
+    final pages = [
+      _HomeScreen(
+        user: widget.user,
+        technicianStatsKey: _technicianStatsKey,
+        onNavigateToLabTests: _navigateToLabTests,
+      ),
+      LabTestsScreen(
+        currentUser: widget.user,
+        initialStatusFilter: _labTestsFilter,
+      ),
+      ProfileScreen(user: widget.user),
+    ];
+
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_index != 0) {
+          setState(() => _index = 0);
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(index: _index, children: pages),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) {
+            if (i == 0 && _index != 0) {
+              _technicianStatsKey.currentState?.fetchStats(silent: true);
+            }
+            setState(() => _index = i);
+          },
+          backgroundColor: AppTheme.surface,
+          indicatorColor: AppTheme.primaryLight,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: _destinations,
+        ),
       ),
     );
   }
@@ -287,12 +303,14 @@ class _HomeScreen extends StatefulWidget {
   final GlobalKey<_DoctorStatsPanelState>? doctorStatsKey;
   final GlobalKey<_TechnicianStatsPanelState>? technicianStatsKey;
   final VoidCallback? onNavigateToClinics;
+  final void Function(String? filter)? onNavigateToLabTests;
 
   const _HomeScreen({
     required this.user,
     this.doctorStatsKey,
     this.technicianStatsKey,
     this.onNavigateToClinics,
+    this.onNavigateToLabTests,
   });
 
   @override
@@ -361,51 +379,51 @@ class _HomeScreenState extends State<_HomeScreen> {
     }
   }
 
+  void _openDoctorRecords(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ConsultationRecordsSheet(
+        currentUser: user,
+        patientId: null,
+        doctorId: user.id,
+        title: 'Consultation Records',
+        showDoctorAsPrimary: false,
+        allowManage: true,
+      ),
+    );
+  }
+
+  void _openPatientPrescriptions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ConsultationRecordsSheet(
+        currentUser: user,
+        patientId: user.id,
+        doctorId: null,
+        title: 'Prescriptions',
+        showDoctorAsPrimary: true,
+      ),
+    );
+  }
+
+  void _openPatientLabResults(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PatientLabResultsSheet(currentUser: user),
+    );
+  }
+
   List<_Action> _buildActions(BuildContext context) {
     final role = user.userRole.roleName.toUpperCase();
-
-    void openRecords() {
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _ConsultationRecordsSheet(
-          currentUser: user,
-          patientId: null,
-          doctorId: user.id,
-          title: 'Consultation Records',
-          showDoctorAsPrimary: false,
-          allowManage: true,
-        ),
-      );
-    }
-
-    void openPrescriptions() {
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _ConsultationRecordsSheet(
-          currentUser: user,
-          patientId: user.id,
-          doctorId: null,
-          title: 'Prescriptions',
-          showDoctorAsPrimary: true,
-        ),
-      );
-    }
-
-    void openLabResults() {
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _PatientLabResultsSheet(currentUser: user),
-      );
-    }
 
     if (role == 'PATIENT') {
       return [
@@ -413,13 +431,13 @@ class _HomeScreenState extends State<_HomeScreen> {
           icon: Icons.description_rounded,
           label: 'Prescriptions',
           color: const Color(0xFF6366F1),
-          onTap: openPrescriptions,
+          onTap: () => _openPatientPrescriptions(context),
         ),
         _Action(
           icon: Icons.science_rounded,
           label: 'Lab Results',
           color: const Color(0xFF10B981),
-          onTap: openLabResults,
+          onTap: () => _openPatientLabResults(context),
         ),
       ];
     } else if (role == 'DOCTOR') {
@@ -444,7 +462,7 @@ class _HomeScreenState extends State<_HomeScreen> {
           icon: Icons.medical_information_rounded,
           label: 'Records',
           color: const Color(0xFF10B981),
-          onTap: openRecords,
+          onTap: () => _openDoctorRecords(context),
         ),
       ];
     } else {
@@ -567,6 +585,8 @@ class _HomeScreenState extends State<_HomeScreen> {
                         _DoctorStatsPanel(
                           key: _doctorKey,
                           currentUser: user,
+                          onNavigateToClinics: widget.onNavigateToClinics,
+                          onOpenRecords: () => _openDoctorRecords(context),
                         ),
                         const SizedBox(height: 28),
                       ],
@@ -575,6 +595,7 @@ class _HomeScreenState extends State<_HomeScreen> {
                         _TechnicianStatsPanel(
                           key: _techKey,
                           currentUser: user,
+                          onNavigateToLabTests: widget.onNavigateToLabTests,
                         ),
                         const SizedBox(height: 28),
                       ],
@@ -670,7 +691,15 @@ class _HomeScreenState extends State<_HomeScreen> {
 
 class _DoctorStatsPanel extends StatefulWidget {
   final User currentUser;
-  const _DoctorStatsPanel({super.key, required this.currentUser});
+  final VoidCallback? onNavigateToClinics;
+  final VoidCallback? onOpenRecords;
+
+  const _DoctorStatsPanel({
+    super.key,
+    required this.currentUser,
+    this.onNavigateToClinics,
+    this.onOpenRecords,
+  });
 
   @override
   State<_DoctorStatsPanel> createState() => _DoctorStatsPanelState();
@@ -693,23 +722,71 @@ class _DoctorStatsPanelState extends State<_DoctorStatsPanel> {
     if (!silent) {
       setState(() => _loading = true);
     }
-    final results = await Future.wait([
-      UserApiService.getAllPatientProfiles().catchError((_) => <dynamic>[]),
-      ClinicApiService.getAllClinics().catchError((_) => <dynamic>[]),
-      ConsultationApiService.list().catchError((_) => <Map<String, dynamic>>[]),
-    ]);
+    try {
+      final results = await Future.wait([
+        UserApiService.getDoctorProfile(widget.currentUser.id)
+            .catchError((_) => null),
+        ClinicApiService.getAllClinicDoctors()
+            .catchError((_) => <dynamic>[]),
+        ClinicApiService.getAllClinics()
+            .catchError((_) => <dynamic>[]),
+        ConsultationApiService.list(doctorId: widget.currentUser.id)
+            .catchError((_) => <Map<String, dynamic>>[]),
+      ]);
 
-    if (!mounted) return;
-    final clinics = results[1];
-    setState(() {
-      _totalPatients = results[0].length;
-      _totalClinics = clinics.length;
-      _scheduledClinics = clinics
-          .where((c) => (c as Map<String, dynamic>)['status'] == 'SCHEDULED')
-          .length;
-      _totalConsultations = results[2].length;
-      _loading = false;
-    });
+      if (!mounted) return;
+
+      final doctorProfile = results[0] as Map<String, dynamic>?;
+      final allClinicDoctors = results[1] as List<dynamic>;
+      final allClinics = results[2] as List<dynamic>;
+      final consultations = results[3] as List<Map<String, dynamic>>;
+
+      final doctorRefId = doctorProfile?['id'];
+      final userId = widget.currentUser.id;
+
+      final myClinicIds = <int>{};
+      for (final cd in allClinicDoctors) {
+        if (cd is! Map) continue;
+        final refId =
+            cd['doctorRefId'] ?? cd['doctor_ref_id'] ?? cd['doctorId'];
+        final isMatch = (doctorRefId != null && refId == doctorRefId) ||
+            (refId == userId);
+        if (isMatch) {
+          final clinicObj = cd['clinic'];
+          if (clinicObj is Map && clinicObj['id'] is int) {
+            myClinicIds.add(clinicObj['id'] as int);
+          } else if (cd['clinicId'] is int) {
+            myClinicIds.add(cd['clinicId'] as int);
+          } else if (cd['clinic_id'] is int) {
+            myClinicIds.add(cd['clinic_id'] as int);
+          }
+        }
+      }
+
+      final myClinics = allClinics.where((c) {
+        if (c is! Map) return false;
+        final id = c['id'];
+        return id is int && myClinicIds.contains(id);
+      }).toList();
+
+      final uniquePatientIds = <dynamic>{};
+      for (final cons in consultations) {
+        final pid = cons['patientId'];
+        if (pid != null) uniquePatientIds.add(pid);
+      }
+
+      setState(() {
+        _totalClinics = myClinics.length;
+        _scheduledClinics = myClinics
+            .where((c) => (c as Map<String, dynamic>)['status'] == 'SCHEDULED')
+            .length;
+        _totalConsultations = consultations.length;
+        _totalPatients = uniquePatientIds.length;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -720,24 +797,28 @@ class _DoctorStatsPanelState extends State<_DoctorStatsPanel> {
         value: _totalPatients,
         icon: Icons.people_outline_rounded,
         color: AppTheme.primary,
+        onTap: widget.onNavigateToClinics,
       ),
       _StatItem(
         label: 'Total Clinics',
         value: _totalClinics,
         icon: Icons.calendar_today_outlined,
         color: const Color(0xFFF59E0B),
+        onTap: widget.onNavigateToClinics,
       ),
       _StatItem(
         label: 'Scheduled Clinics',
         value: _scheduledClinics,
         icon: Icons.event_available_outlined,
         color: const Color(0xFF6366F1),
+        onTap: widget.onNavigateToClinics,
       ),
       _StatItem(
         label: 'Prescriptions',
         value: _totalConsultations,
         icon: Icons.description_outlined,
         color: const Color(0xFF10B981),
+        onTap: widget.onOpenRecords,
       ),
     ];
 
@@ -773,7 +854,13 @@ class _DoctorStatsPanelState extends State<_DoctorStatsPanel> {
 
 class _TechnicianStatsPanel extends StatefulWidget {
   final User currentUser;
-  const _TechnicianStatsPanel({super.key, required this.currentUser});
+  final void Function(String? filter)? onNavigateToLabTests;
+
+  const _TechnicianStatsPanel({
+    super.key,
+    required this.currentUser,
+    this.onNavigateToLabTests,
+  });
 
   @override
   State<_TechnicianStatsPanel> createState() => _TechnicianStatsPanelState();
@@ -803,45 +890,28 @@ class _TechnicianStatsPanelState extends State<_TechnicianStatsPanel> {
 
       if (!mounted) return;
 
-      // Hydrate true completion status from medical-records-service submitted results
-      final effectiveStatuses = await Future.wait(
-        tests.map((t) async {
-          final rawStatus =
-              (t['status']?.toString() ?? 'PENDING').toUpperCase();
-          if (rawStatus == 'COMPLETED' ||
-              rawStatus == 'IN_PROGRESS' ||
-              rawStatus == 'CANCELLED') {
-            return rawStatus;
-          }
+      int pendingCount = 0;
+      int inProgressCount = 0;
+      int completedCount = 0;
 
-          int? id;
-          if (t['id'] is int) {
-            id = t['id'] as int;
-          } else if (t['id'] != null) {
-            id = int.tryParse(t['id'].toString());
-          }
+      for (final t in tests) {
+        final status = (t['status']?.toString() ?? 'PENDING').toUpperCase();
+        if (status == 'COMPLETED') {
+          completedCount++;
+        } else if (status == 'IN_PROGRESS') {
+          inProgressCount++;
+        } else if (status == 'CANCELLED') {
+          // cancelled tests
+        } else {
+          pendingCount++;
+        }
+      }
 
-          if (id != null) {
-            try {
-              final result = await TestResultsApiService.getByLabTestId(id);
-              if (result != null) {
-                return 'COMPLETED';
-              }
-            } catch (_) {
-              // Ignore single check error, fallback to rawStatus
-            }
-          }
-          return rawStatus;
-        }),
-        eagerError: false,
-      );
-
-      if (!mounted) return;
       setState(() {
         _total = tests.length;
-        _pending = effectiveStatuses.where((s) => s == 'PENDING').length;
-        _inProgress = effectiveStatuses.where((s) => s == 'IN_PROGRESS').length;
-        _completed = effectiveStatuses.where((s) => s == 'COMPLETED').length;
+        _pending = pendingCount;
+        _inProgress = inProgressCount;
+        _completed = completedCount;
         _loading = false;
       });
     } catch (_) {
@@ -859,24 +929,28 @@ class _TechnicianStatsPanelState extends State<_TechnicianStatsPanel> {
         value: _total,
         icon: Icons.science_outlined,
         color: AppTheme.primary,
+        onTap: () => widget.onNavigateToLabTests?.call('ALL'),
       ),
       _StatItem(
         label: 'Pending',
         value: _pending,
         icon: Icons.hourglass_empty_rounded,
         color: const Color(0xFFF59E0B),
+        onTap: () => widget.onNavigateToLabTests?.call('PENDING'),
       ),
       _StatItem(
         label: 'In Progress',
         value: _inProgress,
         icon: Icons.autorenew_rounded,
         color: const Color(0xFF6366F1),
+        onTap: () => widget.onNavigateToLabTests?.call('IN_PROGRESS'),
       ),
       _StatItem(
         label: 'Completed',
         value: _completed,
         icon: Icons.check_circle_outline_rounded,
         color: const Color(0xFF10B981),
+        onTap: () => widget.onNavigateToLabTests?.call('COMPLETED'),
       ),
     ];
 
@@ -927,11 +1001,14 @@ class _StatItem {
   final int value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
+
   const _StatItem({
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 }
 
@@ -942,57 +1019,83 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: item.onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(item.icon, color: item.color, size: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 2),
-          loading
-              ? Container(
-                  width: 40,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: AppTheme.border,
-                    borderRadius: BorderRadius.circular(6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(item.icon, color: item.color, size: 18),
                   ),
-                )
-              : Text(
-                  item.value.toString(),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
+                  if (item.onTap != null)
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 11,
+                      color: AppTheme.textHint.withValues(alpha: 0.8),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
                 ),
-        ],
+              ),
+              const SizedBox(height: 2),
+              loading
+                  ? Container(
+                      width: 44,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: AppTheme.border.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    )
+                  : Text(
+                      item.value.toString(),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -4798,27 +4901,45 @@ class _ActionTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppTheme.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: action.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(action.icon, color: action.color, size: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: action.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(action.icon, color: action.color, size: 22),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 13,
+                    color: AppTheme.textHint.withValues(alpha: 0.8),
+                  ),
+                ],
               ),
               Text(
                 action.label,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   color: AppTheme.textPrimary,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],

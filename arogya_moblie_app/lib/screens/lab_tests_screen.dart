@@ -11,8 +11,13 @@ import '../services/test_results_api_service.dart';
 class LabTestsScreen extends StatefulWidget {
   static const routeName = '/lab-tests';
   final User currentUser;
+  final String? initialStatusFilter;
 
-  const LabTestsScreen({super.key, required this.currentUser});
+  const LabTestsScreen({
+    super.key,
+    required this.currentUser,
+    this.initialStatusFilter,
+  });
 
   @override
   State<LabTestsScreen> createState() => _LabTestsScreenState();
@@ -41,7 +46,33 @@ class _LabTestsScreenState extends State<LabTestsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialStatusFilter != null &&
+        _statusOptions.contains(widget.initialStatusFilter)) {
+      _statusFilter = widget.initialStatusFilter!;
+    }
     _loadLabTests();
+  }
+
+  @override
+  void didUpdateWidget(covariant LabTestsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialStatusFilter != null &&
+        widget.initialStatusFilter != oldWidget.initialStatusFilter &&
+        _statusOptions.contains(widget.initialStatusFilter)) {
+      setState(() {
+        _statusFilter = widget.initialStatusFilter!;
+        _filterTests();
+      });
+    }
+  }
+
+  void setFilter(String status) {
+    if (_statusOptions.contains(status)) {
+      setState(() {
+        _statusFilter = status;
+        _filterTests();
+      });
+    }
   }
 
   @override
