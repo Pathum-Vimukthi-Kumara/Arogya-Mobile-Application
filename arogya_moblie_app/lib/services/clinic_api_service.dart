@@ -76,4 +76,15 @@ class ClinicApiService {
     }
     throw Exception('Failed to load clinic doctors (${response.statusCode})');
   }
+
+  static Future<List<dynamic>> getAllClinicDoctors() async {
+    final uri = Uri.parse('$_baseUrl/clinic_doctors/getAllClinicDoctors');
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    }
+    throw Exception('Failed to load clinic doctors (${response.statusCode})');
+  }
 }

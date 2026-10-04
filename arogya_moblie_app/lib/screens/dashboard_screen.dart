@@ -57,7 +57,10 @@ class _PatientShellState extends State<PatientShell> {
   void initState() {
     super.initState();
     _pages = [
-      _HomeScreen(user: widget.user),
+      _HomeScreen(
+        user: widget.user,
+        onNavigateToClinics: () => setState(() => _index = 1),
+      ),
       _PatientClinicsSheet(currentUser: widget.user),
       ProfileScreen(user: widget.user),
     ];
@@ -83,15 +86,24 @@ class _PatientShellState extends State<PatientShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: AppTheme.surface,
-        indicatorColor: AppTheme.primaryLight,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: _destinations,
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_index != 0) {
+          setState(() => _index = 0);
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(index: _index, children: _pages),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          backgroundColor: AppTheme.surface,
+          indicatorColor: AppTheme.primaryLight,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: _destinations,
+        ),
       ),
     );
   }
@@ -116,7 +128,11 @@ class _DoctorShellState extends State<DoctorShell> {
   void initState() {
     super.initState();
     _pages = [
-      _HomeScreen(user: widget.user, doctorStatsKey: _doctorStatsKey),
+      _HomeScreen(
+        user: widget.user,
+        doctorStatsKey: _doctorStatsKey,
+        onNavigateToClinics: () => setState(() => _index = 1),
+      ),
       _DoctorClinicsTab(currentUser: widget.user),
       ProfileScreen(user: widget.user),
     ];
@@ -142,20 +158,29 @@ class _DoctorShellState extends State<DoctorShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) {
-          if (i == 0 && _index != 0) {
-            _doctorStatsKey.currentState?.fetchStats(silent: true);
-          }
-          setState(() => _index = i);
-        },
-        backgroundColor: AppTheme.surface,
-        indicatorColor: AppTheme.primaryLight,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: _destinations,
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_index != 0) {
+          setState(() => _index = 0);
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(index: _index, children: _pages),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) {
+            if (i == 0 && _index != 0) {
+              _doctorStatsKey.currentState?.fetchStats(silent: true);
+            }
+            setState(() => _index = i);
+          },
+          backgroundColor: AppTheme.surface,
+          indicatorColor: AppTheme.primaryLight,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: _destinations,
+        ),
       ),
     );
   }
@@ -174,7 +199,7 @@ class _DoctorClinicsTab extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Clinics',
+          'Clinic Dashboard',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
       ),
@@ -261,11 +286,13 @@ class _HomeScreen extends StatefulWidget {
   final User user;
   final GlobalKey<_DoctorStatsPanelState>? doctorStatsKey;
   final GlobalKey<_TechnicianStatsPanelState>? technicianStatsKey;
+  final VoidCallback? onNavigateToClinics;
 
   const _HomeScreen({
     required this.user,
     this.doctorStatsKey,
     this.technicianStatsKey,
+    this.onNavigateToClinics,
   });
 
   @override
@@ -337,19 +364,6 @@ class _HomeScreenState extends State<_HomeScreen> {
   List<_Action> _buildActions(BuildContext context) {
     final role = user.userRole.roleName.toUpperCase();
 
-    void soon(String name) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$name — coming soon'),
-          backgroundColor: AppTheme.primary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-    }
-
     void openRecords() {
       showModalBottomSheet<void>(
         context: context,
@@ -414,7 +428,17 @@ class _HomeScreenState extends State<_HomeScreen> {
           icon: Icons.people_rounded,
           label: 'Patients',
           color: const Color(0xFF6366F1),
-          onTap: () => soon('Patients'),
+          onTap: () {
+            if (widget.onNavigateToClinics != null) {
+              widget.onNavigateToClinics!();
+            } else {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => _DoctorClinicsTab(currentUser: user),
+                ),
+              );
+            }
+          },
         ),
         _Action(
           icon: Icons.medical_information_rounded,
@@ -784,7 +808,9 @@ class _TechnicianStatsPanelState extends State<_TechnicianStatsPanel> {
         tests.map((t) async {
           final rawStatus =
               (t['status']?.toString() ?? 'PENDING').toUpperCase();
-          if (rawStatus == 'COMPLETED' || rawStatus == 'CANCELLED') {
+          if (rawStatus == 'COMPLETED' ||
+              rawStatus == 'IN_PROGRESS' ||
+              rawStatus == 'CANCELLED') {
             return rawStatus;
           }
 
@@ -1019,13 +1045,57 @@ class _DoctorClinicsPanelState extends State<_DoctorClinicsPanel> {
     });
 
     try {
-      final data = await ClinicApiService.getAllClinics();
+      final results = await Future.wait([
+        UserApiService.getDoctorProfile(widget.currentUser.id)
+            .catchError((_) => null),
+        ClinicApiService.getAllClinicDoctors()
+            .catchError((_) => <dynamic>[]),
+        ClinicApiService.getAllClinics()
+            .catchError((_) => <dynamic>[]),
+      ]);
+
       if (!mounted) return;
+
+      final doctorProfile = results[0] as Map<String, dynamic>?;
+      final allClinicDoctors = results[1] as List<dynamic>;
+      final allClinics = results[2] as List<dynamic>;
+
+      final doctorRefId = doctorProfile?['id'];
+      final userId = widget.currentUser.id;
+
+      // Extract clinic IDs assigned to this doctor (matching doctorRefId or userId)
+      final myClinicIds = <int>{};
+      for (final cd in allClinicDoctors) {
+        if (cd is! Map) continue;
+        final refId =
+            cd['doctorRefId'] ?? cd['doctor_ref_id'] ?? cd['doctorId'];
+        final isMatch = (doctorRefId != null && refId == doctorRefId) ||
+            (refId == userId);
+        if (isMatch) {
+          final clinicObj = cd['clinic'];
+          if (clinicObj is Map && clinicObj['id'] is int) {
+            myClinicIds.add(clinicObj['id'] as int);
+          } else if (cd['clinicId'] is int) {
+            myClinicIds.add(cd['clinicId'] as int);
+          } else if (cd['clinic_id'] is int) {
+            myClinicIds.add(cd['clinic_id'] as int);
+          }
+        }
+      }
+
+      // Filter allClinics to only those assigned to this doctor
+      final assignedClinics = allClinics
+          .whereType<Map>()
+          .where((clinic) => myClinicIds.contains(clinic['id']))
+          .map((clinic) => Map<String, dynamic>.from(clinic))
+          .toList();
+
       setState(() {
-        _clinics = data
-            .whereType<Map>()
-            .map((clinic) => Map<String, dynamic>.from(clinic))
-            .toList();
+        _clinics = assignedClinics;
+        if (_selectedClinicId != null &&
+            !_clinics.any((c) => c['id'] == _selectedClinicId)) {
+          _selectedClinicId = null;
+        }
         _loading = false;
       });
     } catch (e) {
@@ -1126,7 +1196,14 @@ class _DoctorClinicsPanelState extends State<_DoctorClinicsPanel> {
                 key: ValueKey(_selectedClinicId),
                 initialValue: _selectedClinicId,
                 isExpanded: true,
-                hint: const Text('Choose clinic...'),
+                hint: Text(
+                  _loading
+                      ? 'Loading your clinics...'
+                      : _clinics.isEmpty
+                          ? 'You are not assigned to any clinics yet.'
+                          : 'Choose clinic...',
+                  overflow: TextOverflow.ellipsis,
+                ),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 14,
@@ -1147,7 +1224,7 @@ class _DoctorClinicsPanelState extends State<_DoctorClinicsPanel> {
                     })
                     .whereType<DropdownMenuItem<int>>()
                     .toList(),
-                onChanged: _loading
+                onChanged: _loading || _clinics.isEmpty
                     ? null
                     : (value) => setState(() => _selectedClinicId = value),
               ),
@@ -1220,10 +1297,14 @@ class _DoctorClinicsPanelState extends State<_DoctorClinicsPanel> {
               else if (filtered.isEmpty)
                 _PanelMessage(
                   icon: Icons.event_busy_rounded,
-                  title: 'No clinics found',
-                  message: 'Adjust the clinic, search, or status filter.',
-                  actionLabel: 'Clear Filters',
-                  onAction: _clearFilters,
+                  title: _clinics.isEmpty
+                      ? 'No Assigned Clinics'
+                      : 'No clinics found',
+                  message: _clinics.isEmpty
+                      ? 'You are not assigned to any clinics yet. Please contact an administrator.'
+                      : 'Adjust the clinic, search, or status filter.',
+                  actionLabel: _clinics.isEmpty ? 'Refresh' : 'Clear Filters',
+                  onAction: _clinics.isEmpty ? _loadClinics : _clearFilters,
                 )
               else
                 Column(
@@ -2448,7 +2529,17 @@ class _LabTestRecordCard extends StatelessWidget {
     final resultDescription = (result?['testResultDescription'] ?? '')
         .toString();
     final technicianNotes = (result?['technicianNotes'] ?? '').toString();
-    final resultFileName = (result?['fileName'] ?? '').toString();
+    final List<String> resultFiles = [];
+    if (result?['files'] is List) {
+      for (final f in (result!['files'] as List)) {
+        if (f is Map && f['fileName'] != null) {
+          resultFiles.add(f['fileName'].toString());
+        }
+      }
+    }
+    if (resultFiles.isEmpty && (result?['fileName'] ?? '').toString().isNotEmpty) {
+      resultFiles.add(result!['fileName'].toString());
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -2519,27 +2610,33 @@ class _LabTestRecordCard extends StatelessWidget {
               compact: true,
             ),
           ],
-          if (resultFileName.isNotEmpty) ...[
+          if (resultFiles.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(
-                  Icons.attach_file_rounded,
-                  size: 14,
-                  color: AppTheme.textSecondary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    resultFileName,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: resultFiles.map((fn) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.attach_file_rounded,
+                    size: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 240),
+                    child: Text(
+                      fn,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              )).toList(),
             ),
           ],
         ],
