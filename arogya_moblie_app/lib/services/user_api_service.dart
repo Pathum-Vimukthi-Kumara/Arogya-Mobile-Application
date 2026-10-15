@@ -41,7 +41,106 @@ class UserApiService {
     } on UserApiException {
       rethrow;
     } catch (e) {
-      throw UserApiException(
+      throw const UserApiException(
+        'Cannot connect to server. Check your network.',
+        0,
+      );
+    }
+  }
+
+  // ── Password Reset ──────────────────────────────────────────────────
+
+  /// Request 6-digit OTP to be sent to [email].
+  static Future<String> forgotPassword(String email) async {
+    final uri = Uri.parse('$_baseUrl/users/forgot-password');
+    final body = jsonEncode({'email': email.trim()});
+
+    try {
+      final response = await http
+          .post(uri, headers: _headers, body: body)
+          .timeout(const Duration(seconds: 15));
+
+      final json = _tryDecode(response.body);
+      if (response.statusCode == 200) {
+        return json?['message'] as String? ??
+            'Verification code sent to your email.';
+      } else {
+        final msg = json?['message'] ??
+            'Failed to send verification code (${response.statusCode})';
+        throw UserApiException(msg, response.statusCode);
+      }
+    } on UserApiException {
+      rethrow;
+    } catch (e) {
+      throw const UserApiException(
+        'Cannot connect to server. Check your network.',
+        0,
+      );
+    }
+  }
+
+  /// Verify the 6-digit [otp] sent to [email]. Returns the single-use resetToken.
+  static Future<String> verifyOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/users/verify-otp');
+    final body = jsonEncode({'email': email.trim(), 'otp': otp.trim()});
+
+    try {
+      final response = await http
+          .post(uri, headers: _headers, body: body)
+          .timeout(const Duration(seconds: 15));
+
+      final json = _tryDecode(response.body);
+      if (response.statusCode == 200) {
+        return json?['resetToken'] as String? ?? '';
+      } else {
+        final msg = json?['message'] ??
+            'Invalid or expired verification code.';
+        throw UserApiException(msg, response.statusCode);
+      }
+    } on UserApiException {
+      rethrow;
+    } catch (e) {
+      throw const UserApiException(
+        'Cannot connect to server. Check your network.',
+        0,
+      );
+    }
+  }
+
+  /// Reset password using [resetToken] and [newPassword].
+  static Future<String> resetPassword({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/users/reset-password');
+    final body = jsonEncode({
+      'email': email.trim(),
+      'resetToken': resetToken.trim(),
+      'newPassword': newPassword,
+    });
+
+    try {
+      final response = await http
+          .post(uri, headers: _headers, body: body)
+          .timeout(const Duration(seconds: 15));
+
+      final json = _tryDecode(response.body);
+      if (response.statusCode == 200) {
+        return json?['message'] as String? ??
+            'Password has been reset successfully.';
+      } else {
+        final msg = json?['message'] ??
+            'Failed to reset password (${response.statusCode})';
+        throw UserApiException(msg, response.statusCode);
+      }
+    } on UserApiException {
+      rethrow;
+    } catch (e) {
+      throw const UserApiException(
         'Cannot connect to server. Check your network.',
         0,
       );

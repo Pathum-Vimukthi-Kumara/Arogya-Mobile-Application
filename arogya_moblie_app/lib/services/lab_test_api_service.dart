@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'api_auth.dart';
 
 class LabTestApiService {
-  static const String _baseUrl = 'http://10.0.2.2:8096';
+  static const String _baseUrl = 'http://10.0.2.2:8090';
 
   static Map<String, String> get _headers => ApiAuth.headers();
 
